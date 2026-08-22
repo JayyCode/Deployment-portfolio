@@ -1,0 +1,62 @@
+name: Build and upload dist
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Print runner info
+        run: |
+          echo "Runner: $(uname -a)"
+          node --version || true
+          npm --version || true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Configure npm auth for private packages (optional)
+        if: ${{ secrets.NPM_TOKEN != '' }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          npm whoami || true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Show package-lock summary
+        run: |
+          echo "Top-level deps:"
+          jq -r '.dependencies | keys_unsorted[]' package-lock.json 2>/dev/null || true
+
+      - name: Build
+        run: npm run build
+
+      - name: Show dist contents (for troubleshooting)
+        run: |
+          if [ -d dist ]; then
+            echo "dist exists:"
+            ls -la dist
+          else
+            echo "dist folder not found"
+            exit 1
+          fi
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
