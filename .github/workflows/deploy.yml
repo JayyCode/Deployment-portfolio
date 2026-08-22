@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: true
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -29,10 +30,13 @@ jobs:
           cache: 'npm'
 
       - name: Configure npm auth for private packages (optional)
-        if: ${{ secrets.NPM_TOKEN != '' }}
         run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-          npm whoami || true
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+            npm whoami || true
+          else
+            echo "NPM_TOKEN not set; skipping npm auth"
+          fi
 
       - name: Install dependencies
         run: npm ci
