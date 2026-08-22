@@ -1,4 +1,4 @@
-name: Build and upload dist
+name: Build and deploy to GitHub Pages
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     env:
       CI: true
@@ -17,7 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Print runner info
+      - name: Runner info
         run: |
           echo "Runner: $(uname -a)"
           node --version || true
@@ -29,7 +29,7 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
-      - name: Configure npm auth for private packages (optional)
+      - name: Configure npm auth (optional)
         run: |
           if [ -n "$NPM_TOKEN" ]; then
             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
@@ -41,26 +41,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Show package-lock summary
-        run: |
-          echo "Top-level deps:"
-          jq -r '.dependencies | keys_unsorted[]' package-lock.json 2>/dev/null || true
-
       - name: Build
         run: npm run build
 
       - name: Show dist contents (for troubleshooting)
         run: |
           if [ -d dist ]; then
-            echo "dist exists:"
+            echo "dist:"
             ls -la dist
+            find dist -maxdepth 2 -type f | sed -n '1,200p'
           else
             echo "dist folder not found"
             exit 1
           fi
 
-      - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v1
         with:
-          name: dist
-          path: dist
+          path: ./dist
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v5
+
+      - name: Cleanup npmrc
+        if: always()
+        run: |
+          if [ -f ~/.npmrc ]; then
+            rm -f ~/.npmrc
+            echo "Removed ~/.npmrc"
+          fi
