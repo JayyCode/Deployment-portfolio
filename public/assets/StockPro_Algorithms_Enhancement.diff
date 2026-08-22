@@ -1,0 +1,880 @@
+diff -ruN stockpro_se_base/CS499_ALGORITHMS_DATA_STRUCTURES_ENHANCEMENT.md stockpro_alg_work/CS499_ALGORITHMS_DATA_STRUCTURES_ENHANCEMENT.md
+--- stockpro_se_base/CS499_ALGORITHMS_DATA_STRUCTURES_ENHANCEMENT.md	1970-01-01 00:00:00.000000000 +0000
++++ stockpro_alg_work/CS499_ALGORITHMS_DATA_STRUCTURES_ENHANCEMENT.md	2026-08-09 23:45:02.556745810 +0000
+@@ -0,0 +1,35 @@
++# CS 499 Milestone Three: Algorithms and Data Structures Enhancement
++
++## Artifact
++StockPro is the CS 360 Android mobile inventory application enhanced in the previous milestone for software design and engineering.
++
++## Enhancement Scope
++This milestone adds the planned algorithms and data structures enhancement while preserving the software-engineering refactor already completed.
++
++## Implemented Changes
++- Added `InventoryAlgorithmEngine.java` to centralize search, low-stock filtering, sorting, and priority scoring.
++- Added `SortOptionMapper.java` to translate UI spinner labels into algorithm sort modes.
++- Updated `InventoryActivity.java` to maintain both a complete `allItems` dataset and a visible `itemList` dataset.
++- Added responsive search using `TextWatcher`.
++- Added a low-stock-only filter using `CheckBox`.
++- Added a sort mode selector using `Spinner`.
++- Added an inventory summary that reports visible item count versus total item count.
++- Updated `InventoryAdapter.java` to display algorithm-derived low-stock status and priority score for each row.
++- Updated `activity_inventory.xml` and `item_row.xml` to expose the new algorithmic controls and output.
++
++## Algorithmic Value
++The original app displayed inventory in the order returned by SQLite and relied on a single hard-coded low-stock threshold. The enhanced version applies a data-processing pipeline:
++
++1. Load inventory records into an in-memory list.
++2. Normalize the search query.
++3. Filter records by item name if search text is present.
++4. Optionally filter to low-stock records only.
++5. Calculate a priority score for low-stock items.
++6. Sort records by priority, name, quantity ascending, or quantity descending.
++7. Update the RecyclerView with the resulting list.
++
++## Complexity and Trade-Offs
++- Search and low-stock filtering are O(n) because each item must be evaluated.
++- Sorting is O(n log n), which is acceptable for a mobile inventory list.
++- The app keeps a full list and a visible list, which uses more memory than a single list but gives the UI responsive search and filter behavior.
++- If the dataset grew significantly, some search and sorting behavior could be moved into indexed SQLite queries in the database milestone.
+diff -ruN stockpro_se_base/app/src/main/java/com/example/reginald_williams/InventoryActivity.java stockpro_alg_work/app/src/main/java/com/example/reginald_williams/InventoryActivity.java
+--- stockpro_se_base/app/src/main/java/com/example/reginald_williams/InventoryActivity.java	2026-07-22 02:31:31.000000000 +0000
++++ stockpro_alg_work/app/src/main/java/com/example/reginald_williams/InventoryActivity.java	2026-08-09 23:44:09.944746402 +0000
+@@ -3,9 +3,16 @@
+ import android.Manifest;
+ import android.content.pm.PackageManager;
+ import android.os.Bundle;
++import android.text.Editable;
++import android.text.TextWatcher;
+ import android.view.LayoutInflater;
+ import android.view.View;
++import android.widget.AdapterView;
++import android.widget.ArrayAdapter;
++import android.widget.CheckBox;
+ import android.widget.EditText;
++import android.widget.Spinner;
++import android.widget.TextView;
+ import android.widget.Toast;
+ 
+ import androidx.annotation.NonNull;
+@@ -21,9 +28,9 @@
+ 
+ /**
+  * InventoryActivity manages the inventory screen and delegates persistence,
+- * validation, and notification work to focused helper classes. This keeps the
+- * activity responsible for UI behavior instead of combining every application
+- * responsibility in one file.
++ * validation, notification, and algorithmic list operations to focused helper
++ * classes. This keeps the activity responsible for UI behavior instead of
++ * combining every application responsibility in one file.
+  */
+ public class InventoryActivity extends AppCompatActivity {
+     private static final int SMS_PERMISSION_CODE = 101;
+@@ -33,7 +40,11 @@
+     private LowInventoryNotifier lowInventoryNotifier;
+     private InventoryAdapter adapter;
+     private List<Item> itemList;
+-    private EditText nameInput, qtyInput;
++    private List<Item> allItems;
++    private EditText nameInput, qtyInput, searchInput;
++    private CheckBox lowStockOnlyCheckBox;
++    private Spinner sortSpinner;
++    private TextView inventorySummary;
+ 
+     @Override
+     protected void onCreate(Bundle savedInstanceState) {
+@@ -43,11 +54,12 @@
+         inventoryRepository = new InventoryRepository(this);
+         lowInventoryNotifier = new LowInventoryNotifier(this);
+         itemList = new ArrayList<>();
++        allItems = new ArrayList<>();
+ 
+         RecyclerView recyclerView = findViewById(R.id.recyclerView);
+         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+ 
+-        adapter = new InventoryAdapter(itemList, new InventoryAdapter.OnItemInteractionListener() {
++        adapter = new InventoryAdapter(itemList, LOW_STOCK_THRESHOLD, new InventoryAdapter.OnItemInteractionListener() {
+             @Override
+             public void onDeleteClick(int id) {
+                 deleteItem(id);
+@@ -62,16 +74,65 @@
+ 
+         nameInput = findViewById(R.id.newItemName);
+         qtyInput = findViewById(R.id.newItemQty);
++        searchInput = findViewById(R.id.searchInventory);
++        lowStockOnlyCheckBox = findViewById(R.id.lowStockOnlyCheckBox);
++        sortSpinner = findViewById(R.id.sortSpinner);
++        inventorySummary = findViewById(R.id.inventorySummary);
+         View addBtn = findViewById(R.id.addButton);
+         View smsBtn = findViewById(R.id.smsPermissionButton);
+ 
+         addBtn.setOnClickListener(v -> addItemFromInput());
+         smsBtn.setOnClickListener(v -> requestSmsPermissionIfNeeded());
++        setupAlgorithmControls();
+ 
+         refreshList();
+     }
+ 
+     /**
++     * Connects search, filter, and sort controls to the inventory algorithm engine.
++     */
++    private void setupAlgorithmControls() {
++        ArrayAdapter<String> sortAdapter = new ArrayAdapter<>(
++                this,
++                android.R.layout.simple_spinner_item,
++                SortOptionMapper.getLabels()
++        );
++        sortAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
++        sortSpinner.setAdapter(sortAdapter);
++
++        searchInput.addTextChangedListener(new TextWatcher() {
++            @Override
++            public void beforeTextChanged(CharSequence value, int start, int count, int after) {
++                // No action needed before the search text changes.
++            }
++
++            @Override
++            public void onTextChanged(CharSequence value, int start, int before, int count) {
++                applyInventoryAlgorithms();
++            }
++
++            @Override
++            public void afterTextChanged(Editable value) {
++                // Filtering happens in onTextChanged to keep results responsive.
++            }
++        });
++
++        lowStockOnlyCheckBox.setOnCheckedChangeListener((buttonView, isChecked) -> applyInventoryAlgorithms());
++
++        sortSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
++            @Override
++            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
++                applyInventoryAlgorithms();
++            }
++
++            @Override
++            public void onNothingSelected(AdapterView<?> parent) {
++                applyInventoryAlgorithms();
++            }
++        });
++    }
++
++    /**
+      * Validates user-entered item data before sending the request to the repository layer.
+      */
+     private void addItemFromInput() {
+@@ -149,12 +210,40 @@
+     }
+ 
+     /**
+-     * Synchronizes the in-memory list with the repository layer.
++     * Synchronizes the complete inventory dataset with the repository layer.
+      */
+     private void refreshList() {
++        allItems.clear();
++        allItems.addAll(inventoryRepository.getAllItems());
++        applyInventoryAlgorithms();
++    }
++
++    /**
++     * Applies search, low-stock filtering, priority scoring, and sorting to the UI list.
++     */
++    private void applyInventoryAlgorithms() {
++        if (adapter == null || searchInput == null || lowStockOnlyCheckBox == null || sortSpinner == null) {
++            return;
++        }
++
++        String selectedLabel = String.valueOf(sortSpinner.getSelectedItem());
++        InventoryAlgorithmEngine.FilterResult result = InventoryAlgorithmEngine.filterAndSort(
++                allItems,
++                searchInput.getText().toString(),
++                lowStockOnlyCheckBox.isChecked(),
++                LOW_STOCK_THRESHOLD,
++                SortOptionMapper.fromLabel(selectedLabel)
++        );
++
+         itemList.clear();
+-        itemList.addAll(inventoryRepository.getAllItems());
++        itemList.addAll(result.getItems());
+         adapter.notifyDataSetChanged();
++        updateInventorySummary(result);
++    }
++
++    private void updateInventorySummary(InventoryAlgorithmEngine.FilterResult result) {
++        inventorySummary.setText("Showing " + result.getVisibleItemCount()
++                + " of " + result.getTotalItemCount() + " items");
+     }
+ 
+     /**
+diff -ruN stockpro_se_base/app/src/main/java/com/example/reginald_williams/InventoryAdapter.java stockpro_alg_work/app/src/main/java/com/example/reginald_williams/InventoryAdapter.java
+--- stockpro_se_base/app/src/main/java/com/example/reginald_williams/InventoryAdapter.java	2026-07-22 02:31:41.000000000 +0000
++++ stockpro_alg_work/app/src/main/java/com/example/reginald_williams/InventoryAdapter.java	2026-08-09 23:44:17.317708812 +0000
+@@ -7,17 +7,19 @@
+ import android.widget.TextView;
+ 
+ import androidx.annotation.NonNull;
++import androidx.core.content.ContextCompat;
+ import androidx.recyclerview.widget.RecyclerView;
+ 
+ import java.util.List;
+ 
+ /**
+  * InventoryAdapter binds inventory data to the RecyclerView grid display.
+- * It depends on the standalone Item model instead of a nested Activity class,
+- * making the adapter easier to reuse and test.
++ * It depends on the standalone Item model and displays algorithm-derived
++ * low-stock priority information so the list supports faster decisions.
+  */
+ public class InventoryAdapter extends RecyclerView.Adapter<InventoryAdapter.ViewHolder> {
+     private final List<Item> itemList;
++    private final int lowStockThreshold;
+     private final OnItemInteractionListener interactionListener;
+ 
+     /**
+@@ -28,8 +30,9 @@
+         void onUpdateClick(Item item);
+     }
+ 
+-    public InventoryAdapter(List<Item> itemList, OnItemInteractionListener listener) {
++    public InventoryAdapter(List<Item> itemList, int lowStockThreshold, OnItemInteractionListener listener) {
+         this.itemList = itemList;
++        this.lowStockThreshold = lowStockThreshold;
+         this.interactionListener = listener;
+     }
+ 
+@@ -43,9 +46,18 @@
+     @Override
+     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+         Item item = itemList.get(position);
++        boolean isLowStock = InventoryAlgorithmEngine.isLowStock(item, lowStockThreshold);
++        int priorityScore = InventoryAlgorithmEngine.calculatePriorityScore(item, lowStockThreshold);
+ 
+         holder.nameText.setText(item.getName());
+         holder.qtyText.setText("Stock: " + item.getQuantity());
++        if (isLowStock) {
++            holder.statusText.setText("Low stock | Priority " + priorityScore);
++            holder.statusText.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.warning_red));
++        } else {
++            holder.statusText.setText("Stock level OK");
++            holder.statusText.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.accent_blue));
++        }
+ 
+         holder.deleteBtn.setOnClickListener(v -> interactionListener.onDeleteClick(item.getId()));
+         holder.itemView.setOnClickListener(v -> interactionListener.onUpdateClick(item));
+@@ -62,12 +74,14 @@
+     public static class ViewHolder extends RecyclerView.ViewHolder {
+         final TextView nameText;
+         final TextView qtyText;
++        final TextView statusText;
+         final Button deleteBtn;
+ 
+         public ViewHolder(@NonNull View itemView) {
+             super(itemView);
+             nameText = itemView.findViewById(R.id.itemName);
+             qtyText = itemView.findViewById(R.id.itemQty);
++            statusText = itemView.findViewById(R.id.itemStatus);
+             deleteBtn = itemView.findViewById(R.id.deleteButton);
+         }
+     }
+diff -ruN stockpro_se_base/app/src/main/java/com/example/reginald_williams/InventoryAlgorithmEngine.java stockpro_alg_work/app/src/main/java/com/example/reginald_williams/InventoryAlgorithmEngine.java
+--- stockpro_se_base/app/src/main/java/com/example/reginald_williams/InventoryAlgorithmEngine.java	1970-01-01 00:00:00.000000000 +0000
++++ stockpro_alg_work/app/src/main/java/com/example/reginald_williams/InventoryAlgorithmEngine.java	2026-08-09 23:43:48.197387782 +0000
+@@ -0,0 +1,128 @@
++package com.example.reginald_williams;
++
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.Comparator;
++import java.util.List;
++import java.util.Locale;
++
++/**
++ * InventoryAlgorithmEngine contains the search, filter, sort, and priority-scoring
++ * logic for StockPro. Keeping these algorithms outside InventoryActivity makes
++ * them easier to explain, test, and improve independently from the UI layer.
++ */
++public final class InventoryAlgorithmEngine {
++    public enum SortMode {
++        LOW_STOCK_PRIORITY,
++        NAME_ASCENDING,
++        QUANTITY_ASCENDING,
++        QUANTITY_DESCENDING
++    }
++
++    private InventoryAlgorithmEngine() {
++        // Utility class; prevent instantiation.
++    }
++
++    public static FilterResult filterAndSort(
++            List<Item> sourceItems,
++            String rawQuery,
++            boolean lowStockOnly,
++            int lowStockThreshold,
++            SortMode sortMode
++    ) {
++        String query = normalizeQuery(rawQuery);
++        List<Item> results = new ArrayList<>();
++
++        for (Item item : sourceItems) {
++            if (!matchesQuery(item, query)) {
++                continue;
++            }
++
++            if (lowStockOnly && !isLowStock(item, lowStockThreshold)) {
++                continue;
++            }
++
++            results.add(item);
++        }
++
++        Collections.sort(results, getComparator(sortMode, lowStockThreshold));
++        return new FilterResult(results, sourceItems.size());
++    }
++
++    public static int calculatePriorityScore(Item item, int lowStockThreshold) {
++        if (!isLowStock(item, lowStockThreshold)) {
++            return 0;
++        }
++
++        int stockGap = lowStockThreshold - item.getQuantity();
++        int zeroStockBonus = item.getQuantity() == 0 ? lowStockThreshold : 0;
++        return stockGap + zeroStockBonus;
++    }
++
++    public static boolean isLowStock(Item item, int lowStockThreshold) {
++        return item.getQuantity() < lowStockThreshold;
++    }
++
++    private static Comparator<Item> getComparator(SortMode sortMode, int lowStockThreshold) {
++        switch (sortMode) {
++            case NAME_ASCENDING:
++                return Comparator.comparing(item -> item.getName().toLowerCase(Locale.US));
++            case QUANTITY_ASCENDING:
++                return Comparator.comparingInt(Item::getQuantity)
++                        .thenComparing(item -> item.getName().toLowerCase(Locale.US));
++            case QUANTITY_DESCENDING:
++                return (first, second) -> {
++                    int quantityComparison = Integer.compare(second.getQuantity(), first.getQuantity());
++                    if (quantityComparison != 0) {
++                        return quantityComparison;
++                    }
++                    return first.getName().compareToIgnoreCase(second.getName());
++                };
++            case LOW_STOCK_PRIORITY:
++            default:
++                return (first, second) -> {
++                    int priorityComparison = Integer.compare(
++                            calculatePriorityScore(second, lowStockThreshold),
++                            calculatePriorityScore(first, lowStockThreshold)
++                    );
++                    if (priorityComparison != 0) {
++                        return priorityComparison;
++                    }
++                    return first.getName().compareToIgnoreCase(second.getName());
++                };
++        }
++    }
++
++    private static boolean matchesQuery(Item item, String query) {
++        return query.isEmpty() || item.getName().toLowerCase(Locale.US).contains(query);
++    }
++
++    private static String normalizeQuery(String rawQuery) {
++        if (rawQuery == null) {
++            return "";
++        }
++        return rawQuery.trim().toLowerCase(Locale.US);
++    }
++
++    public static class FilterResult {
++        private final List<Item> items;
++        private final int totalItemCount;
++
++        public FilterResult(List<Item> items, int totalItemCount) {
++            this.items = items;
++            this.totalItemCount = totalItemCount;
++        }
++
++        public List<Item> getItems() {
++            return items;
++        }
++
++        public int getTotalItemCount() {
++            return totalItemCount;
++        }
++
++        public int getVisibleItemCount() {
++            return items.size();
++        }
++    }
++}
+diff -ruN stockpro_se_base/app/src/main/java/com/example/reginald_williams/SortOptionMapper.java stockpro_alg_work/app/src/main/java/com/example/reginald_williams/SortOptionMapper.java
+--- stockpro_se_base/app/src/main/java/com/example/reginald_williams/SortOptionMapper.java	1970-01-01 00:00:00.000000000 +0000
++++ stockpro_alg_work/app/src/main/java/com/example/reginald_williams/SortOptionMapper.java	2026-08-09 23:43:48.198521940 +0000
+@@ -0,0 +1,33 @@
++package com.example.reginald_williams;
++
++/**
++ * SortOptionMapper translates user-facing spinner labels into algorithm choices.
++ * This keeps UI text separate from the comparison logic in InventoryAlgorithmEngine.
++ */
++public final class SortOptionMapper {
++    public static final String PRIORITY_LABEL = "Low stock priority";
++    public static final String NAME_LABEL = "Name A-Z";
++    public static final String QUANTITY_LOW_LABEL = "Quantity low-high";
++    public static final String QUANTITY_HIGH_LABEL = "Quantity high-low";
++
++    private SortOptionMapper() {
++        // Utility class; prevent instantiation.
++    }
++
++    public static String[] getLabels() {
++        return new String[]{PRIORITY_LABEL, NAME_LABEL, QUANTITY_LOW_LABEL, QUANTITY_HIGH_LABEL};
++    }
++
++    public static InventoryAlgorithmEngine.SortMode fromLabel(String label) {
++        if (NAME_LABEL.equals(label)) {
++            return InventoryAlgorithmEngine.SortMode.NAME_ASCENDING;
++        }
++        if (QUANTITY_LOW_LABEL.equals(label)) {
++            return InventoryAlgorithmEngine.SortMode.QUANTITY_ASCENDING;
++        }
++        if (QUANTITY_HIGH_LABEL.equals(label)) {
++            return InventoryAlgorithmEngine.SortMode.QUANTITY_DESCENDING;
++        }
++        return InventoryAlgorithmEngine.SortMode.LOW_STOCK_PRIORITY;
++    }
++}
+diff -ruN stockpro_se_base/app/src/main/res/layout/activity_inventory.xml stockpro_alg_work/app/src/main/res/layout/activity_inventory.xml
+--- stockpro_se_base/app/src/main/res/layout/activity_inventory.xml	2026-06-23 03:45:37.000000000 +0000
++++ stockpro_alg_work/app/src/main/res/layout/activity_inventory.xml	2026-08-09 23:44:34.948746121 +0000
+@@ -1,104 +1,171 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+-    xmlns:app="http://schemas.android.com/apk/res-auto"
+-    android:layout_width="match_parent"
+-    android:layout_height="match_parent"
+-    android:background="@color/dark_bg">
+-
+-    <!-- App Bar / Title -->
+-    <LinearLayout
+-        android:id="@+id/appBar"
+-        android:layout_width="match_parent"
+-        android:layout_height="wrap_content"
+-        android:orientation="horizontal"
+-        android:padding="20dp"
+-        android:gravity="center_vertical"
+-        android:background="@color/primary_dark_blue">
+-
+-        <TextView
+-            android:layout_width="wrap_content"
+-            android:layout_height="wrap_content"
+-            android:text="📦"
+-            android:textSize="32sp"
+-            android:layout_marginEnd="12dp"/>
+-
+-        <TextView
+-            android:layout_width="0dp"
+-            android:layout_height="wrap_content"
+-            android:layout_weight="1"
+-            android:text="My Inventory"
+-            android:textSize="24sp"
+-            android:textStyle="bold"
+-            android:textColor="@color/white" />
+-
+-        <ImageButton
+-            android:id="@+id/smsPermissionButton"
+-            android:layout_width="48dp"
+-            android:layout_height="48dp"
+-            android:background="?attr/selectableItemBackgroundBorderless"
+-            android:src="@android:drawable/stat_notify_chat"
+-            app:tint="@color/white" />
+-    </LinearLayout>
+-
+-    <androidx.recyclerview.widget.RecyclerView
+-        android:id="@+id/recyclerView"
+-        android:layout_width="match_parent"
+-        android:layout_height="match_parent"
+-        android:layout_below="@id/appBar"
+-        android:layout_above="@id/inputArea"
+-        android:paddingTop="8dp"
+-        android:clipToPadding="false" />
+-
+-    <!-- Bottom Input Area -->
+-    <com.google.android.material.card.MaterialCardView
+-        android:id="@+id/inputArea"
+-        android:layout_width="match_parent"
+-        android:layout_height="wrap_content"
+-        android:layout_alignParentBottom="true"
+-        app:cardCornerRadius="24dp"
+-        android:layout_margin="16dp"
+-        app:cardElevation="8dp"
+-        app:cardBackgroundColor="@color/dark_surface"
+-        app:strokeWidth="0dp">
+-
+-        <LinearLayout
+-            android:layout_width="match_parent"
+-            android:layout_height="wrap_content"
+-            android:orientation="horizontal"
+-            android:padding="16dp"
+-            android:gravity="center_vertical">
+-
+-            <EditText
+-                android:id="@+id/newItemName"
+-                android:layout_width="0dp"
+-                android:layout_height="wrap_content"
+-                android:layout_weight="1"
+-                android:hint="Item Name"
+-                android:background="@android:color/transparent"
+-                android:textColor="@color/white"
+-                android:padding="8dp" />
+-
+-            <EditText
+-                android:id="@+id/newItemQty"
+-                android:layout_width="60dp"
+-                android:layout_height="wrap_content"
+-                android:hint="Qty"
+-                android:inputType="number"
+-                android:background="@android:color/transparent"
+-                android:textColor="@color/accent_blue"
+-                android:padding="8dp"
+-                android:textStyle="bold" />
+-
+-            <com.google.android.material.floatingactionbutton.FloatingActionButton
+-                android:id="@+id/addButton"
+-                android:layout_width="wrap_content"
+-                android:layout_height="wrap_content"
+-                android:layout_marginStart="8dp"
+-                app:fabSize="mini"
+-                app:srcCompat="@android:drawable/ic_input_add"
+-                app:tint="@color/white"
+-                app:backgroundTint="@color/primary_blue" />
+-        </LinearLayout>
+-    </com.google.android.material.card.MaterialCardView>
+-
+-</RelativeLayout>
++<?xml version="1.0" encoding="utf-8"?>
++<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    android:background="@color/dark_bg">
++
++    <!-- App Bar / Title -->
++    <LinearLayout
++        android:id="@+id/appBar"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:orientation="horizontal"
++        android:padding="20dp"
++        android:gravity="center_vertical"
++        android:background="@color/primary_dark_blue">
++
++        <TextView
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:text="Inventory"
++            android:textSize="18sp"
++            android:textColor="@color/white"
++            android:layout_marginEnd="12dp"/>
++
++        <TextView
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:layout_weight="1"
++            android:text="StockPro"
++            android:textSize="24sp"
++            android:textStyle="bold"
++            android:textColor="@color/white" />
++
++        <ImageButton
++            android:id="@+id/smsPermissionButton"
++            android:layout_width="48dp"
++            android:layout_height="48dp"
++            android:background="?attr/selectableItemBackgroundBorderless"
++            android:src="@android:drawable/stat_notify_chat"
++            app:tint="@color/white" />
++    </LinearLayout>
++
++    <!-- Algorithm Controls -->
++    <com.google.android.material.card.MaterialCardView
++        android:id="@+id/algorithmPanel"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_below="@id/appBar"
++        android:layout_margin="16dp"
++        app:cardCornerRadius="16dp"
++        app:cardElevation="6dp"
++        app:cardBackgroundColor="@color/dark_surface"
++        app:strokeWidth="0dp">
++
++        <LinearLayout
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:orientation="vertical"
++            android:padding="14dp">
++
++            <EditText
++                android:id="@+id/searchInventory"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:hint="Search inventory"
++                android:inputType="text"
++                android:singleLine="true"
++                android:background="@android:color/transparent"
++                android:textColor="@color/white"
++                android:textColorHint="@color/accent_blue"
++                android:padding="8dp" />
++
++            <LinearLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:orientation="horizontal"
++                android:gravity="center_vertical"
++                android:paddingTop="8dp">
++
++                <CheckBox
++                    android:id="@+id/lowStockOnlyCheckBox"
++                    android:layout_width="0dp"
++                    android:layout_height="wrap_content"
++                    android:layout_weight="1"
++                    android:text="Low stock only"
++                    android:textColor="@color/white"
++                    android:buttonTint="@color/accent_blue" />
++
++                <Spinner
++                    android:id="@+id/sortSpinner"
++                    android:layout_width="170dp"
++                    android:layout_height="wrap_content"
++                    android:backgroundTint="@color/accent_blue" />
++            </LinearLayout>
++
++            <TextView
++                android:id="@+id/inventorySummary"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:text="Showing 0 of 0 items"
++                android:textColor="@color/accent_blue"
++                android:textSize="12sp"
++                android:paddingTop="6dp" />
++        </LinearLayout>
++    </com.google.android.material.card.MaterialCardView>
++
++    <androidx.recyclerview.widget.RecyclerView
++        android:id="@+id/recyclerView"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        android:layout_below="@id/algorithmPanel"
++        android:layout_above="@id/inputArea"
++        android:paddingTop="8dp"
++        android:clipToPadding="false" />
++
++    <!-- Bottom Input Area -->
++    <com.google.android.material.card.MaterialCardView
++        android:id="@+id/inputArea"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_alignParentBottom="true"
++        app:cardCornerRadius="24dp"
++        android:layout_margin="16dp"
++        app:cardElevation="8dp"
++        app:cardBackgroundColor="@color/dark_surface"
++        app:strokeWidth="0dp">
++
++        <LinearLayout
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:orientation="horizontal"
++            android:padding="16dp"
++            android:gravity="center_vertical">
++
++            <EditText
++                android:id="@+id/newItemName"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:hint="Item Name"
++                android:background="@android:color/transparent"
++                android:textColor="@color/white"
++                android:textColorHint="@color/accent_blue"
++                android:padding="8dp" />
++
++            <EditText
++                android:id="@+id/newItemQty"
++                android:layout_width="60dp"
++                android:layout_height="wrap_content"
++                android:hint="Qty"
++                android:inputType="number"
++                android:background="@android:color/transparent"
++                android:textColor="@color/accent_blue"
++                android:textColorHint="@color/accent_blue"
++                android:padding="8dp"
++                android:textStyle="bold" />
++
++            <com.google.android.material.floatingactionbutton.FloatingActionButton
++                android:id="@+id/addButton"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginStart="8dp"
++                app:fabSize="mini"
++                app:srcCompat="@android:drawable/ic_input_add"
++                app:tint="@color/white"
++                app:backgroundTint="@color/primary_blue" />
++        </LinearLayout>
++    </com.google.android.material.card.MaterialCardView>
++
++</RelativeLayout>
+diff -ruN stockpro_se_base/app/src/main/res/layout/item_row.xml stockpro_alg_work/app/src/main/res/layout/item_row.xml
+--- stockpro_se_base/app/src/main/res/layout/item_row.xml	2026-06-23 03:45:20.000000000 +0000
++++ stockpro_alg_work/app/src/main/res/layout/item_row.xml	2026-08-09 23:44:35.631572614 +0000
+@@ -1,66 +1,74 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+-    xmlns:app="http://schemas.android.com/apk/res-auto"
+-    android:layout_width="match_parent"
+-    android:layout_height="wrap_content"
+-    android:layout_marginHorizontal="16dp"
+-    android:layout_marginVertical="8dp"
+-    app:cardCornerRadius="12dp"
+-    app:cardElevation="4dp"
+-    app:strokeWidth="0dp"
+-    app:cardBackgroundColor="@color/dark_surface">
+-
+-    <LinearLayout
+-        android:layout_width="match_parent"
+-        android:layout_height="wrap_content"
+-        android:orientation="horizontal"
+-        android:padding="16dp"
+-        android:gravity="center_vertical">
+-
+-        <TextView
+-            android:layout_width="48dp"
+-            android:layout_height="48dp"
+-            android:background="@drawable/circle_bg"
+-            android:gravity="center"
+-            android:text="📦"
+-            android:textSize="24sp"
+-            android:layout_marginEnd="16dp"/>
+-
+-        <LinearLayout
+-            android:layout_width="0dp"
+-            android:layout_height="wrap_content"
+-            android:layout_weight="1"
+-            android:orientation="vertical">
+-
+-            <TextView
+-                android:id="@+id/itemName"
+-                android:layout_width="wrap_content"
+-                android:layout_height="wrap_content"
+-                android:text="Item Name"
+-                android:textColor="@color/white"
+-                android:textSize="18sp"
+-                android:textStyle="bold" />
+-
+-            <TextView
+-                android:id="@+id/itemQty"
+-                android:layout_width="wrap_content"
+-                android:layout_height="wrap_content"
+-                android:text="Qty: 0"
+-                android:textColor="@color/accent_blue"
+-                android:textSize="14sp" />
+-        </LinearLayout>
+-
+-        <com.google.android.material.button.MaterialButton
+-            android:id="@+id/deleteButton"
+-            style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+-            android:layout_width="48dp"
+-            android:layout_height="48dp"
+-            android:padding="0dp"
+-            app:icon="@android:drawable/ic_menu_delete"
+-            app:iconGravity="textStart"
+-            app:iconPadding="0dp"
+-            app:iconSize="24dp"
+-            app:iconTint="@android:color/holo_red_light" />
+-
+-    </LinearLayout>
+-</com.google.android.material.card.MaterialCardView>
++<?xml version="1.0" encoding="utf-8"?>
++<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    android:layout_marginHorizontal="16dp"
++    android:layout_marginVertical="8dp"
++    app:cardCornerRadius="12dp"
++    app:cardElevation="4dp"
++    app:strokeWidth="0dp"
++    app:cardBackgroundColor="@color/dark_surface">
++
++    <LinearLayout
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:orientation="horizontal"
++        android:padding="16dp"
++        android:gravity="center_vertical">
++
++        <TextView
++            android:layout_width="48dp"
++            android:layout_height="48dp"
++            android:background="@drawable/circle_bg"
++            android:gravity="center"
++            android:text="📦"
++            android:textSize="24sp"
++            android:layout_marginEnd="16dp"/>
++
++        <LinearLayout
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:layout_weight="1"
++            android:orientation="vertical">
++
++            <TextView
++                android:id="@+id/itemName"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:text="Item Name"
++                android:textColor="@color/white"
++                android:textSize="18sp"
++                android:textStyle="bold" />
++
++            <TextView
++                android:id="@+id/itemQty"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:text="Qty: 0"
++                android:textColor="@color/accent_blue"
++                android:textSize="14sp" />
++
++            <TextView
++                android:id="@+id/itemStatus"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:text="Stock level OK"
++                android:textColor="@color/accent_blue"
++                android:textSize="12sp" />
++        </LinearLayout>
++
++        <com.google.android.material.button.MaterialButton
++            android:id="@+id/deleteButton"
++            style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
++            android:layout_width="48dp"
++            android:layout_height="48dp"
++            android:padding="0dp"
++            app:icon="@android:drawable/ic_menu_delete"
++            app:iconGravity="textStart"
++            app:iconPadding="0dp"
++            app:iconSize="24dp"
++            app:iconTint="@android:color/holo_red_light" />
++
++    </LinearLayout>
++</com.google.android.material.card.MaterialCardView>
+diff -ruN stockpro_se_base/app/src/main/res/values/colors.xml stockpro_alg_work/app/src/main/res/values/colors.xml
+--- stockpro_se_base/app/src/main/res/values/colors.xml	2026-06-15 01:31:26.000000000 +0000
++++ stockpro_alg_work/app/src/main/res/values/colors.xml	2026-08-09 23:44:36.319330785 +0000
+@@ -7,4 +7,5 @@
+     <color name="accent_blue">#82B1FF</color>
+     <color name="dark_bg">#121212</color>
+     <color name="dark_surface">#1E1E1E</color>
++    <color name="warning_red">#FF6B6B</color>
+ </resources>
+\ No newline at end of file

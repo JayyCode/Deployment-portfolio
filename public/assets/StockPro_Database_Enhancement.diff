@@ -1,0 +1,702 @@
+Only in /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced: CS499_DATABASE_ENHANCEMENT.md
+diff -ru /mnt/data/stockpro_db_work/Reginald_WilliamsStockPro_AlgorithmsEnhncements/app/src/main/java/com/example/reginald_williams/DatabaseHelper.java /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams/DatabaseHelper.java
+--- /mnt/data/stockpro_db_work/Reginald_WilliamsStockPro_AlgorithmsEnhncements/app/src/main/java/com/example/reginald_williams/DatabaseHelper.java	2026-08-09 23:59:12.000000000 +0000
++++ /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams/DatabaseHelper.java	2026-08-10 00:58:36.585971958 +0000
+@@ -1,126 +1,305 @@
+-package com.example.reginald_williams;
+-
+-import android.content.ContentValues;
+-import android.content.Context;
+-import android.database.Cursor;
+-import android.database.sqlite.SQLiteDatabase;
+-import android.database.sqlite.SQLiteOpenHelper;
+-
+-/**
+- * DatabaseHelper manages the SQLite database for the application.
+- * It handles creation, version management, and CRUD operations for users and inventory items.
+- * This class ensures data persistence across application restarts.
+- */
+-public class DatabaseHelper extends SQLiteOpenHelper {
+-    private static final String DATABASE_NAME = "InventoryApp.db";
+-    private static final int DATABASE_VERSION = 2; // Incremented for schema updates
+-
+-    // Users table constants
+-    private static final String TABLE_USERS = "users";
+-    private static final String COLUMN_USER_ID = "id";
+-    private static final String COLUMN_USERNAME = "username";
+-    private static final String COLUMN_PASSWORD = "password";
+-
+-    // Items table constants (Inventory Shell)
+-    private static final String TABLE_ITEMS = "items";
+-    private static final String COLUMN_ITEM_ID = "id";
+-    private static final String COLUMN_ITEM_NAME = "name";
+-    private static final String COLUMN_ITEM_QTY = "quantity";
+-
+-    public DatabaseHelper(Context context) {
+-        super(context, DATABASE_NAME, null, DATABASE_VERSION);
+-    }
+-
+-    @Override
+-    public void onCreate(SQLiteDatabase db) {
+-        // Create table for user authentication
+-        String createUsersTable = "CREATE TABLE " + TABLE_USERS + " (" +
+-                COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+-                COLUMN_USERNAME + " TEXT UNIQUE, " +
+-                COLUMN_PASSWORD + " TEXT)";
+-        
+-        // Create table for inventory items (the "grid" data source)
+-        String createItemsTable = "CREATE TABLE " + TABLE_ITEMS + " (" +
+-                COLUMN_ITEM_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+-                COLUMN_ITEM_NAME + " TEXT, " +
+-                COLUMN_ITEM_QTY + " INTEGER)";
+-
+-        db.execSQL(createUsersTable);
+-        db.execSQL(createItemsTable);
+-    }
+-
+-    @Override
+-    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+-        // Wipe existing data and recreate tables on schema update
+-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_USERS);
+-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_ITEMS);
+-        onCreate(db);
+-    }
+-
+-    /* --- User Operations --- */
+-
+-    /**
+-     * Persists a new user to the database.
+-     * @return true if insertion was successful.
+-     */
+-    public boolean addUser(String username, String password) {
+-        SQLiteDatabase db = this.getWritableDatabase();
+-        ContentValues values = new ContentValues();
+-        values.put(COLUMN_USERNAME, username);
+-        values.put(COLUMN_PASSWORD, password);
+-        long result = db.insert(TABLE_USERS, null, values);
+-        return result != -1;
+-    }
+-
+-    /**
+-     * Verifies user credentials against the database.
+-     */
+-    public boolean checkUser(String username, String password) {
+-        SQLiteDatabase db = this.getReadableDatabase();
+-        Cursor cursor = db.query(TABLE_USERS, new String[]{COLUMN_USER_ID},
+-                COLUMN_USERNAME + "=? AND " + COLUMN_PASSWORD + "=?",
+-                new String[]{username, password}, null, null, null);
+-        int count = cursor.getCount();
+-        cursor.close();
+-        return count > 0;
+-    }
+-
+-    /* --- Inventory Item Operations (CRUD) --- */
+-
+-    /**
+-     * CREATE: Adds a new item to the inventory grid.
+-     */
+-    public long addItem(String name, int qty) {
+-        SQLiteDatabase db = this.getWritableDatabase();
+-        ContentValues values = new ContentValues();
+-        values.put(COLUMN_ITEM_NAME, name);
+-        values.put(COLUMN_ITEM_QTY, qty);
+-        return db.insert(TABLE_ITEMS, null, values);
+-    }
+-
+-    /**
+-     * READ: Retrieves all items for display in the grid.
+-     */
+-    public Cursor getAllItems() {
+-        SQLiteDatabase db = this.getReadableDatabase();
+-        return db.rawQuery("SELECT * FROM " + TABLE_ITEMS, null);
+-    }
+-
+-    /**
+-     * UPDATE: Changes the value (quantity) associated with an individual item.
+-     */
+-    public void updateItem(int id, int qty) {
+-        SQLiteDatabase db = this.getWritableDatabase();
+-        ContentValues values = new ContentValues();
+-        values.put(COLUMN_ITEM_QTY, qty);
+-        db.update(TABLE_ITEMS, values, COLUMN_ITEM_ID + "=?", new String[]{String.valueOf(id)});
+-    }
+-
+-    /**
+-     * DELETE: Removes an item from the inventory.
+-     */
+-    public void deleteItem(int id) {
+-        SQLiteDatabase db = this.getWritableDatabase();
+-        db.delete(TABLE_ITEMS, COLUMN_ITEM_ID + "=?", new String[]{String.valueOf(id)});
+-    }
+-}
++package com.example.reginald_williams;
++
++import android.content.ContentValues;
++import android.content.Context;
++import android.database.Cursor;
++import android.database.sqlite.SQLiteDatabase;
++import android.database.sqlite.SQLiteOpenHelper;
++
++import java.util.HashSet;
++import java.util.Set;
++
++/**
++ * DatabaseHelper manages the SQLite database for the application.
++ *
++ * The database enhancement expands the inventory schema, preserves existing data
++ * during upgrades, adds indexes and focused query methods, and stores credentials
++ * as password hashes instead of clear text.
++ */
++public class DatabaseHelper extends SQLiteOpenHelper {
++    private static final String DATABASE_NAME = "InventoryApp.db";
++    private static final int DATABASE_VERSION = 3;
++
++    private static final int DEFAULT_REORDER_THRESHOLD = Item.DEFAULT_REORDER_THRESHOLD;
++
++    // Users table constants
++    private static final String TABLE_USERS = "users";
++    private static final String COLUMN_USER_ID = "id";
++    private static final String COLUMN_USERNAME = "username";
++    private static final String COLUMN_PASSWORD = "password";
++
++    // Items table constants
++    private static final String TABLE_ITEMS = "items";
++    public static final String COLUMN_ITEM_ID = "id";
++    public static final String COLUMN_ITEM_NAME = "name";
++    public static final String COLUMN_ITEM_QTY = "quantity";
++    public static final String COLUMN_ITEM_SKU = "sku";
++    public static final String COLUMN_ITEM_CATEGORY = "category";
++    public static final String COLUMN_ITEM_REORDER_THRESHOLD = "reorder_threshold";
++    public static final String COLUMN_ITEM_UPDATED_AT = "updated_at";
++    public static final String COLUMN_ITEM_OWNER_USER_ID = "owner_user_id";
++
++    public DatabaseHelper(Context context) {
++        super(context, DATABASE_NAME, null, DATABASE_VERSION);
++    }
++
++    @Override
++    public void onCreate(SQLiteDatabase db) {
++        db.execSQL(getCreateUsersTableSql());
++        db.execSQL(getCreateItemsTableSql());
++        createIndexes(db);
++    }
++
++    @Override
++    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
++        // Preserve existing data instead of dropping tables during schema updates.
++        if (oldVersion < 3) {
++            ensureBaseTables(db);
++            addColumnIfMissing(db, TABLE_ITEMS, COLUMN_ITEM_SKU, "TEXT DEFAULT ''");
++            addColumnIfMissing(db, TABLE_ITEMS, COLUMN_ITEM_CATEGORY, "TEXT DEFAULT 'General'");
++            addColumnIfMissing(db, TABLE_ITEMS, COLUMN_ITEM_REORDER_THRESHOLD,
++                    "INTEGER DEFAULT " + DEFAULT_REORDER_THRESHOLD);
++            addColumnIfMissing(db, TABLE_ITEMS, COLUMN_ITEM_UPDATED_AT, "INTEGER DEFAULT 0");
++            addColumnIfMissing(db, TABLE_ITEMS, COLUMN_ITEM_OWNER_USER_ID, "INTEGER DEFAULT -1");
++            createIndexes(db);
++        }
++    }
++
++    /* --- User Operations --- */
++
++    /**
++     * Persists a new user to the database using a password hash instead of clear text.
++     * @return true if insertion was successful.
++     */
++    public boolean addUser(String username, String password) {
++        SQLiteDatabase db = this.getWritableDatabase();
++        ContentValues values = new ContentValues();
++        values.put(COLUMN_USERNAME, username);
++        values.put(COLUMN_PASSWORD, PasswordHasher.hashPassword(password));
++        long result = db.insert(TABLE_USERS, null, values);
++        return result != -1;
++    }
++
++    /**
++     * Verifies user credentials against the stored password hash. If a legacy plain-text
++     * password is encountered, it is migrated to a hash after a successful login.
++     */
++    public boolean checkUser(String username, String password) {
++        SQLiteDatabase db = this.getWritableDatabase();
++        Cursor cursor = db.query(TABLE_USERS,
++                new String[]{COLUMN_USER_ID, COLUMN_PASSWORD},
++                COLUMN_USERNAME + "=?",
++                new String[]{username}, null, null, null);
++
++        try {
++            if (!cursor.moveToFirst()) {
++                return false;
++            }
++
++            int userId = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_USER_ID));
++            String storedPassword = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PASSWORD));
++            boolean verified = PasswordHasher.verifyPassword(password, storedPassword);
++
++            if (verified && !PasswordHasher.isHashedPassword(storedPassword)) {
++                migrateLegacyPassword(db, userId, password);
++            }
++
++            return verified;
++        } finally {
++            cursor.close();
++        }
++    }
++
++    /* --- Inventory Item Operations (CRUD and Query Methods) --- */
++
++    /**
++     * CREATE: Adds a new item with default database values for enhanced schema fields.
++     */
++    public long addItem(String name, int qty) {
++        return addItem(name, qty, "", Item.DEFAULT_CATEGORY, DEFAULT_REORDER_THRESHOLD, Item.NO_OWNER_USER_ID);
++    }
++
++    /**
++     * CREATE: Adds a complete inventory item record.
++     */
++    public long addItem(String name, int qty, String sku, String category, int reorderThreshold, int ownerUserId) {
++        SQLiteDatabase db = this.getWritableDatabase();
++        ContentValues values = buildItemContentValues(name, qty, sku, category, reorderThreshold, ownerUserId);
++        values.put(COLUMN_ITEM_UPDATED_AT, System.currentTimeMillis());
++        return db.insert(TABLE_ITEMS, null, values);
++    }
++
++    /**
++     * READ: Retrieves all items using an explicit column list instead of SELECT *.
++     */
++    public Cursor getAllItems() {
++        SQLiteDatabase db = this.getReadableDatabase();
++        return db.query(TABLE_ITEMS, getItemProjection(), null, null, null, null,
++                COLUMN_ITEM_NAME + " COLLATE NOCASE ASC");
++    }
++
++    /**
++     * READ: Finds items by name, SKU, or category using a parameterized LIKE query.
++     */
++    public Cursor searchItems(String query) {
++        SQLiteDatabase db = this.getReadableDatabase();
++        String safeQuery = query == null ? "" : query.trim();
++        String likeQuery = "%" + safeQuery + "%";
++        return db.query(TABLE_ITEMS, getItemProjection(),
++                COLUMN_ITEM_NAME + " LIKE ? OR " + COLUMN_ITEM_SKU + " LIKE ? OR " + COLUMN_ITEM_CATEGORY + " LIKE ?",
++                new String[]{likeQuery, likeQuery, likeQuery}, null, null,
++                COLUMN_ITEM_NAME + " COLLATE NOCASE ASC");
++    }
++
++    /**
++     * READ: Retrieves only items whose quantity is below the item-specific reorder threshold.
++     */
++    public Cursor getLowStockItems() {
++        SQLiteDatabase db = this.getReadableDatabase();
++        return db.query(TABLE_ITEMS, getItemProjection(),
++                COLUMN_ITEM_QTY + " < " + COLUMN_ITEM_REORDER_THRESHOLD,
++                null, null, null,
++                "(" + COLUMN_ITEM_REORDER_THRESHOLD + " - " + COLUMN_ITEM_QTY + ") DESC, "
++                        + COLUMN_ITEM_NAME + " COLLATE NOCASE ASC");
++    }
++
++    /**
++     * READ: Retrieves all items ordered by quantity.
++     */
++    public Cursor getItemsSortedByQuantity(boolean ascending) {
++        SQLiteDatabase db = this.getReadableDatabase();
++        String direction = ascending ? "ASC" : "DESC";
++        return db.query(TABLE_ITEMS, getItemProjection(), null, null, null, null,
++                COLUMN_ITEM_QTY + " " + direction + ", " + COLUMN_ITEM_NAME + " COLLATE NOCASE ASC");
++    }
++
++    /**
++     * READ: Retrieves all items ordered by the highest reorder urgency first.
++     */
++    public Cursor getItemsSortedByPriority() {
++        SQLiteDatabase db = this.getReadableDatabase();
++        return db.query(TABLE_ITEMS, getItemProjection(), null, null, null, null,
++                "(" + COLUMN_ITEM_REORDER_THRESHOLD + " - " + COLUMN_ITEM_QTY + ") DESC, "
++                        + COLUMN_ITEM_NAME + " COLLATE NOCASE ASC");
++    }
++
++    /**
++     * UPDATE: Changes the quantity and records when the item was modified.
++     */
++    public void updateItem(int id, int qty) {
++        SQLiteDatabase db = this.getWritableDatabase();
++        ContentValues values = new ContentValues();
++        values.put(COLUMN_ITEM_QTY, qty);
++        values.put(COLUMN_ITEM_UPDATED_AT, System.currentTimeMillis());
++        db.update(TABLE_ITEMS, values, COLUMN_ITEM_ID + "=?", new String[]{String.valueOf(id)});
++    }
++
++    /**
++     * UPDATE: Changes all editable inventory details for a single item.
++     */
++    public void updateItemDetails(Item item) {
++        SQLiteDatabase db = this.getWritableDatabase();
++        ContentValues values = buildItemContentValues(
++                item.getName(),
++                item.getQuantity(),
++                item.getSku(),
++                item.getCategory(),
++                item.getReorderThreshold(),
++                item.getOwnerUserId()
++        );
++        values.put(COLUMN_ITEM_UPDATED_AT, System.currentTimeMillis());
++        db.update(TABLE_ITEMS, values, COLUMN_ITEM_ID + "=?", new String[]{String.valueOf(item.getId())});
++    }
++
++    /**
++     * DELETE: Removes an item from the inventory.
++     */
++    public void deleteItem(int id) {
++        SQLiteDatabase db = this.getWritableDatabase();
++        db.delete(TABLE_ITEMS, COLUMN_ITEM_ID + "=?", new String[]{String.valueOf(id)});
++    }
++
++    private String getCreateUsersTableSql() {
++        return "CREATE TABLE IF NOT EXISTS " + TABLE_USERS + " (" +
++                COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
++                COLUMN_USERNAME + " TEXT UNIQUE NOT NULL, " +
++                COLUMN_PASSWORD + " TEXT NOT NULL)";
++    }
++
++    private String getCreateItemsTableSql() {
++        return "CREATE TABLE IF NOT EXISTS " + TABLE_ITEMS + " (" +
++                COLUMN_ITEM_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
++                COLUMN_ITEM_NAME + " TEXT NOT NULL, " +
++                COLUMN_ITEM_QTY + " INTEGER NOT NULL DEFAULT 0, " +
++                COLUMN_ITEM_SKU + " TEXT DEFAULT '', " +
++                COLUMN_ITEM_CATEGORY + " TEXT DEFAULT 'General', " +
++                COLUMN_ITEM_REORDER_THRESHOLD + " INTEGER NOT NULL DEFAULT " + DEFAULT_REORDER_THRESHOLD + ", " +
++                COLUMN_ITEM_UPDATED_AT + " INTEGER NOT NULL DEFAULT 0, " +
++                COLUMN_ITEM_OWNER_USER_ID + " INTEGER DEFAULT -1)";
++    }
++
++    private ContentValues buildItemContentValues(String name, int qty, String sku, String category, int reorderThreshold, int ownerUserId) {
++        ContentValues values = new ContentValues();
++        values.put(COLUMN_ITEM_NAME, name);
++        values.put(COLUMN_ITEM_QTY, qty);
++        values.put(COLUMN_ITEM_SKU, sku == null ? "" : sku.trim());
++        values.put(COLUMN_ITEM_CATEGORY, category == null || category.trim().isEmpty()
++                ? Item.DEFAULT_CATEGORY : category.trim());
++        values.put(COLUMN_ITEM_REORDER_THRESHOLD, reorderThreshold <= 0 ? DEFAULT_REORDER_THRESHOLD : reorderThreshold);
++        values.put(COLUMN_ITEM_OWNER_USER_ID, ownerUserId);
++        return values;
++    }
++
++    private String[] getItemProjection() {
++        return new String[]{
++                COLUMN_ITEM_ID,
++                COLUMN_ITEM_NAME,
++                COLUMN_ITEM_QTY,
++                COLUMN_ITEM_SKU,
++                COLUMN_ITEM_CATEGORY,
++                COLUMN_ITEM_REORDER_THRESHOLD,
++                COLUMN_ITEM_UPDATED_AT,
++                COLUMN_ITEM_OWNER_USER_ID
++        };
++    }
++
++    private void ensureBaseTables(SQLiteDatabase db) {
++        db.execSQL(getCreateUsersTableSql());
++        db.execSQL(getCreateItemsTableSql());
++    }
++
++    private void addColumnIfMissing(SQLiteDatabase db, String tableName, String columnName, String columnDefinition) {
++        if (tableHasColumn(db, tableName, columnName)) {
++            return;
++        }
++        db.execSQL("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + columnDefinition);
++    }
++
++    private boolean tableHasColumn(SQLiteDatabase db, String tableName, String columnName) {
++        Set<String> existingColumns = new HashSet<>();
++        Cursor cursor = db.rawQuery("PRAGMA table_info(" + tableName + ")", null);
++        try {
++            int columnNameIndex = cursor.getColumnIndexOrThrow("name");
++            while (cursor.moveToNext()) {
++                existingColumns.add(cursor.getString(columnNameIndex));
++            }
++        } finally {
++            cursor.close();
++        }
++        return existingColumns.contains(columnName);
++    }
++
++    private void createIndexes(SQLiteDatabase db) {
++        db.execSQL("CREATE INDEX IF NOT EXISTS idx_items_name ON " + TABLE_ITEMS + "(" + COLUMN_ITEM_NAME + ")");
++        db.execSQL("CREATE INDEX IF NOT EXISTS idx_items_sku ON " + TABLE_ITEMS + "(" + COLUMN_ITEM_SKU + ")");
++        db.execSQL("CREATE INDEX IF NOT EXISTS idx_items_category ON " + TABLE_ITEMS + "(" + COLUMN_ITEM_CATEGORY + ")");
++        db.execSQL("CREATE INDEX IF NOT EXISTS idx_items_low_stock ON " + TABLE_ITEMS + "("
++                + COLUMN_ITEM_QTY + ", " + COLUMN_ITEM_REORDER_THRESHOLD + ")");
++    }
++
++    private void migrateLegacyPassword(SQLiteDatabase db, int userId, String plainTextPassword) {
++        ContentValues values = new ContentValues();
++        values.put(COLUMN_PASSWORD, PasswordHasher.hashPassword(plainTextPassword));
++        db.update(TABLE_USERS, values, COLUMN_USER_ID + "=?", new String[]{String.valueOf(userId)});
++    }
++}
+diff -ru /mnt/data/stockpro_db_work/Reginald_WilliamsStockPro_AlgorithmsEnhncements/app/src/main/java/com/example/reginald_williams/InventoryActivity.java /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams/InventoryActivity.java
+--- /mnt/data/stockpro_db_work/Reginald_WilliamsStockPro_AlgorithmsEnhncements/app/src/main/java/com/example/reginald_williams/InventoryActivity.java	2026-08-09 23:59:12.000000000 +0000
++++ /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams/InventoryActivity.java	2026-08-10 00:59:01.826441808 +0000
+@@ -155,7 +155,7 @@
+         inventoryRepository.addItem(name, quantity);
+         clearItemInputs();
+         refreshList();
+-        notifyIfLowInventory(name, quantity);
++        notifyIfLowInventory(name, quantity, Item.DEFAULT_REORDER_THRESHOLD);
+     }
+ 
+     /**
+@@ -205,7 +205,7 @@
+         int newQuantity = quantityResult.getQuantity();
+         inventoryRepository.updateQuantity(item.getId(), newQuantity);
+         refreshList();
+-        notifyIfLowInventory(item.getName(), newQuantity);
++        notifyIfLowInventory(item.getName(), newQuantity, item.getReorderThreshold());
+         dialog.dismiss();
+     }
+ 
+@@ -249,8 +249,9 @@
+     /**
+      * Sends a low-stock notification when inventory drops below the defined threshold.
+      */
+-    private void notifyIfLowInventory(String name, int quantity) {
+-        if (quantity >= LOW_STOCK_THRESHOLD) {
++    private void notifyIfLowInventory(String name, int quantity, int reorderThreshold) {
++        int effectiveThreshold = reorderThreshold > 0 ? reorderThreshold : LOW_STOCK_THRESHOLD;
++        if (quantity >= effectiveThreshold) {
+             return;
+         }
+ 
+diff -ru /mnt/data/stockpro_db_work/Reginald_WilliamsStockPro_AlgorithmsEnhncements/app/src/main/java/com/example/reginald_williams/InventoryAdapter.java /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams/InventoryAdapter.java
+--- /mnt/data/stockpro_db_work/Reginald_WilliamsStockPro_AlgorithmsEnhncements/app/src/main/java/com/example/reginald_williams/InventoryAdapter.java	2026-08-09 23:59:12.000000000 +0000
++++ /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams/InventoryAdapter.java	2026-08-10 00:58:55.762226411 +0000
+@@ -50,12 +50,12 @@
+         int priorityScore = InventoryAlgorithmEngine.calculatePriorityScore(item, lowStockThreshold);
+ 
+         holder.nameText.setText(item.getName());
+-        holder.qtyText.setText("Stock: " + item.getQuantity());
++        holder.qtyText.setText("Stock: " + item.getQuantity() + " | Reorder: " + item.getReorderThreshold());
+         if (isLowStock) {
+-            holder.statusText.setText("Low stock | Priority " + priorityScore);
++            holder.statusText.setText("Low stock | Priority " + priorityScore + " | " + item.getCategory());
+             holder.statusText.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.warning_red));
+         } else {
+-            holder.statusText.setText("Stock level OK");
++            holder.statusText.setText("Stock level OK | " + item.getCategory());
+             holder.statusText.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.accent_blue));
+         }
+ 
+diff -ru /mnt/data/stockpro_db_work/Reginald_WilliamsStockPro_AlgorithmsEnhncements/app/src/main/java/com/example/reginald_williams/InventoryAlgorithmEngine.java /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams/InventoryAlgorithmEngine.java
+--- /mnt/data/stockpro_db_work/Reginald_WilliamsStockPro_AlgorithmsEnhncements/app/src/main/java/com/example/reginald_williams/InventoryAlgorithmEngine.java	2026-08-09 23:59:12.000000000 +0000
++++ /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams/InventoryAlgorithmEngine.java	2026-08-10 00:58:55.160594768 +0000
+@@ -50,17 +50,18 @@
+     }
+ 
+     public static int calculatePriorityScore(Item item, int lowStockThreshold) {
++        int reorderThreshold = item.getEffectiveReorderThreshold(lowStockThreshold);
+         if (!isLowStock(item, lowStockThreshold)) {
+             return 0;
+         }
+ 
+-        int stockGap = lowStockThreshold - item.getQuantity();
+-        int zeroStockBonus = item.getQuantity() == 0 ? lowStockThreshold : 0;
++        int stockGap = reorderThreshold - item.getQuantity();
++        int zeroStockBonus = item.getQuantity() == 0 ? reorderThreshold : 0;
+         return stockGap + zeroStockBonus;
+     }
+ 
+     public static boolean isLowStock(Item item, int lowStockThreshold) {
+-        return item.getQuantity() < lowStockThreshold;
++        return item.getQuantity() < item.getEffectiveReorderThreshold(lowStockThreshold);
+     }
+ 
+     private static Comparator<Item> getComparator(SortMode sortMode, int lowStockThreshold) {
+@@ -94,7 +95,12 @@
+     }
+ 
+     private static boolean matchesQuery(Item item, String query) {
+-        return query.isEmpty() || item.getName().toLowerCase(Locale.US).contains(query);
++        if (query.isEmpty()) {
++            return true;
++        }
++        return item.getName().toLowerCase(Locale.US).contains(query)
++                || item.getSku().toLowerCase(Locale.US).contains(query)
++                || item.getCategory().toLowerCase(Locale.US).contains(query);
+     }
+ 
+     private static String normalizeQuery(String rawQuery) {
+diff -ru /mnt/data/stockpro_db_work/Reginald_WilliamsStockPro_AlgorithmsEnhncements/app/src/main/java/com/example/reginald_williams/InventoryRepository.java /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams/InventoryRepository.java
+--- /mnt/data/stockpro_db_work/Reginald_WilliamsStockPro_AlgorithmsEnhncements/app/src/main/java/com/example/reginald_williams/InventoryRepository.java	2026-08-09 23:59:12.000000000 +0000
++++ /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams/InventoryRepository.java	2026-08-10 00:58:44.464501728 +0000
+@@ -10,6 +10,10 @@
+  * InventoryRepository provides a clean boundary between InventoryActivity and
+  * DatabaseHelper. UI classes call repository methods instead of working with
+  * Cursor objects or raw database operations directly.
++ *
++ * The database enhancement adds focused read methods so callers can use explicit
++ * database queries for searching, low-stock retrieval, quantity sorting, and
++ * priority ordering when dataset size or use case requires database-level work.
+  */
+ public class InventoryRepository {
+     private final DatabaseHelper databaseHelper;
+@@ -22,17 +26,44 @@
+         return databaseHelper.addItem(name, quantity);
+     }
+ 
++    public long addItem(String name, int quantity, String sku, String category, int reorderThreshold, int ownerUserId) {
++        return databaseHelper.addItem(name, quantity, sku, category, reorderThreshold, ownerUserId);
++    }
++
+     public void updateQuantity(int itemId, int quantity) {
+         databaseHelper.updateItem(itemId, quantity);
+     }
+ 
++    public void updateItemDetails(Item item) {
++        databaseHelper.updateItemDetails(item);
++    }
++
+     public void deleteItem(int itemId) {
+         databaseHelper.deleteItem(itemId);
+     }
+ 
+     public List<Item> getAllItems() {
++        return readItems(databaseHelper.getAllItems());
++    }
++
++    public List<Item> searchItems(String query) {
++        return readItems(databaseHelper.searchItems(query));
++    }
++
++    public List<Item> getLowStockItems() {
++        return readItems(databaseHelper.getLowStockItems());
++    }
++
++    public List<Item> getItemsSortedByQuantity(boolean ascending) {
++        return readItems(databaseHelper.getItemsSortedByQuantity(ascending));
++    }
++
++    public List<Item> getItemsSortedByPriority() {
++        return readItems(databaseHelper.getItemsSortedByPriority());
++    }
++
++    private List<Item> readItems(Cursor cursor) {
+         List<Item> items = new ArrayList<>();
+-        Cursor cursor = databaseHelper.getAllItems();
+ 
+         if (cursor == null) {
+             return items;
+@@ -41,10 +72,7 @@
+         try {
+             if (cursor.moveToFirst()) {
+                 do {
+-                    int id = cursor.getInt(0);
+-                    String name = cursor.getString(1);
+-                    int quantity = cursor.getInt(2);
+-                    items.add(new Item(id, name, quantity));
++                    items.add(cursorToItem(cursor));
+                 } while (cursor.moveToNext());
+             }
+         } finally {
+@@ -53,4 +81,16 @@
+ 
+         return items;
+     }
++
++    private Item cursorToItem(Cursor cursor) {
++        int id = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_ITEM_ID));
++        String name = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_ITEM_NAME));
++        int quantity = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_ITEM_QTY));
++        String sku = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_ITEM_SKU));
++        String category = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_ITEM_CATEGORY));
++        int reorderThreshold = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_ITEM_REORDER_THRESHOLD));
++        long updatedAt = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_ITEM_UPDATED_AT));
++        int ownerUserId = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_ITEM_OWNER_USER_ID));
++        return new Item(id, name, quantity, sku, category, reorderThreshold, updatedAt, ownerUserId);
++    }
+ }
+diff -ru /mnt/data/stockpro_db_work/Reginald_WilliamsStockPro_AlgorithmsEnhncements/app/src/main/java/com/example/reginald_williams/Item.java /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams/Item.java
+--- /mnt/data/stockpro_db_work/Reginald_WilliamsStockPro_AlgorithmsEnhncements/app/src/main/java/com/example/reginald_williams/Item.java	2026-08-09 23:59:12.000000000 +0000
++++ /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams/Item.java	2026-08-10 00:58:08.252374762 +0000
+@@ -2,21 +2,48 @@
+ 
+ /**
+  * Item is the standalone inventory domain model used across the UI, adapter,
+- * repository, and database layers.
++ * repository, database, and algorithm layers.
+  *
+- * Moving this model out of InventoryActivity improves separation of concerns:
+- * activities can focus on screen behavior while the model represents inventory
+- * data consistently throughout the application.
++ * The database enhancement expands the model beyond the original name and quantity
++ * fields so StockPro can support richer inventory records, item-specific reorder
++ * thresholds, database-backed searching, and future synchronization work.
+  */
+ public class Item {
++    public static final String DEFAULT_CATEGORY = "General";
++    public static final int DEFAULT_REORDER_THRESHOLD = 5;
++    public static final int NO_OWNER_USER_ID = -1;
++
+     private final int id;
+     private final String name;
+     private final int quantity;
++    private final String sku;
++    private final String category;
++    private final int reorderThreshold;
++    private final long updatedAtMillis;
++    private final int ownerUserId;
+ 
+     public Item(int id, String name, int quantity) {
++        this(id, name, quantity, "", DEFAULT_CATEGORY, DEFAULT_REORDER_THRESHOLD, 0L, NO_OWNER_USER_ID);
++    }
++
++    public Item(
++            int id,
++            String name,
++            int quantity,
++            String sku,
++            String category,
++            int reorderThreshold,
++            long updatedAtMillis,
++            int ownerUserId
++    ) {
+         this.id = id;
+         this.name = name;
+         this.quantity = quantity;
++        this.sku = sku == null ? "" : sku;
++        this.category = category == null || category.trim().isEmpty() ? DEFAULT_CATEGORY : category.trim();
++        this.reorderThreshold = reorderThreshold <= 0 ? DEFAULT_REORDER_THRESHOLD : reorderThreshold;
++        this.updatedAtMillis = updatedAtMillis;
++        this.ownerUserId = ownerUserId;
+     }
+ 
+     public int getId() {
+@@ -30,4 +57,28 @@
+     public int getQuantity() {
+         return quantity;
+     }
++
++    public String getSku() {
++        return sku;
++    }
++
++    public String getCategory() {
++        return category;
++    }
++
++    public int getReorderThreshold() {
++        return reorderThreshold;
++    }
++
++    public long getUpdatedAtMillis() {
++        return updatedAtMillis;
++    }
++
++    public int getOwnerUserId() {
++        return ownerUserId;
++    }
++
++    public int getEffectiveReorderThreshold(int fallbackThreshold) {
++        return reorderThreshold > 0 ? reorderThreshold : fallbackThreshold;
++    }
+ }
+Only in /mnt/data/stockpro_db_enhanced/Reginald_WilliamsStockPro_DatabaseEnhanced/app/src/main/java/com/example/reginald_williams: PasswordHasher.java

@@ -1,0 +1,812 @@
+Only in /mnt/data/stockpro_work/Reginald_Williams: CS499_SOFTWARE_ENGINEERING_ENHANCEMENT.md
+diff -ru '--exclude=.gradle' '--exclude=.idea' '--exclude=build' '--exclude=local.properties' /mnt/data/stockpro_original/Reginald_Williams/app/src/main/AndroidManifest.xml /mnt/data/stockpro_work/Reginald_Williams/app/src/main/AndroidManifest.xml
+--- /mnt/data/stockpro_original/Reginald_Williams/app/src/main/AndroidManifest.xml	2026-06-15 01:28:21.000000000 +0000
++++ /mnt/data/stockpro_work/Reginald_Williams/app/src/main/AndroidManifest.xml	2026-07-22 02:31:41.151922763 +0000
+@@ -1,41 +1,38 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+-    xmlns:tools="http://schemas.android.com/tools">
+-
+-    <uses-feature
+-        android:name="android.hardware.telephony"
+-        android:required="false" />
+-
+-    <uses-permission android:name="android.permission.SEND_SMS" />
+-
+-    <application
+-        android:allowBackup="true"
+-        android:dataExtractionRules="@xml/data_extraction_rules"
+-        android:fullBackupContent="@xml/backup_rules"
+-        android:icon="@mipmap/ic_launcher"
+-        android:label="@string/app_name"
+-        android:roundIcon="@mipmap/ic_launcher_round"
+-        android:supportsRtl="true"
+-        android:theme="@style/Theme.Reginald_Williams">
+-        <activity
+-            android:name=".LoginActivity"
+-            android:exported="true"
+-            android:theme="@style/Theme.Reginald_Williams">
+-            <intent-filter>
+-                <action android:name="android.intent.action.MAIN" />
+-
+-                <category android:name="android.intent.category.LAUNCHER" />
+-            </intent-filter>
+-        </activity>
+-        <activity
+-            android:name=".InventoryActivity"
+-            android:exported="false"
+-            android:theme="@style/Theme.Reginald_Williams" />
+-        <activity
+-            android:name=".MainActivity"
+-            android:exported="true"
+-            android:theme="@style/Theme.Reginald_Williams">
+-        </activity>
+-    </application>
+-
+-</manifest>
+\ No newline at end of file
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <uses-feature
++        android:name="android.hardware.telephony"
++        android:required="false" />
++
++    <uses-permission android:name="android.permission.SEND_SMS" />
++
++    <application
++        android:allowBackup="true"
++        android:dataExtractionRules="@xml/data_extraction_rules"
++        android:fullBackupContent="@xml/backup_rules"
++        android:icon="@mipmap/ic_launcher"
++        android:label="@string/app_name"
++        android:roundIcon="@mipmap/ic_launcher_round"
++        android:supportsRtl="true"
++        android:theme="@style/Theme.Reginald_Williams">
++        <activity
++            android:name=".LoginActivity"
++            android:exported="true"
++            android:theme="@style/Theme.Reginald_Williams">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++                <category android:name="android.intent.category.LAUNCHER" />
++            </intent-filter>
++        </activity>
++        <activity
++            android:name=".InventoryActivity"
++            android:exported="false"
++            android:theme="@style/Theme.Reginald_Williams" />
++        <activity
++            android:name=".MainActivity"
++            android:exported="false"
++            android:theme="@style/Theme.Reginald_Williams" />
++    </application>
++
++</manifest>
+Only in /mnt/data/stockpro_work/Reginald_Williams/app/src/main/java/com/example/reginald_williams: AuthRepository.java
+Only in /mnt/data/stockpro_work/Reginald_Williams/app/src/main/java/com/example/reginald_williams: InputValidator.java
+diff -ru '--exclude=.gradle' '--exclude=.idea' '--exclude=build' '--exclude=local.properties' /mnt/data/stockpro_original/Reginald_Williams/app/src/main/java/com/example/reginald_williams/InventoryActivity.java /mnt/data/stockpro_work/Reginald_Williams/app/src/main/java/com/example/reginald_williams/InventoryActivity.java
+--- /mnt/data/stockpro_original/Reginald_Williams/app/src/main/java/com/example/reginald_williams/InventoryActivity.java	2026-06-23 03:45:51.000000000 +0000
++++ /mnt/data/stockpro_work/Reginald_Williams/app/src/main/java/com/example/reginald_williams/InventoryActivity.java	2026-07-22 02:31:31.151923080 +0000
+@@ -1,199 +1,207 @@
+-package com.example.reginald_williams;
+-
+-import android.Manifest;
+-import android.content.pm.PackageManager;
+-import android.database.Cursor;
+-import android.os.Bundle;
+-import android.telephony.SmsManager;
+-import android.view.LayoutInflater;
+-import android.view.View;
+-import android.widget.EditText;
+-import android.widget.Toast;
+-
+-import androidx.annotation.NonNull;
+-import androidx.appcompat.app.AlertDialog;
+-import androidx.appcompat.app.AppCompatActivity;
+-import androidx.core.app.ActivityCompat;
+-import androidx.core.content.ContextCompat;
+-import androidx.recyclerview.widget.LinearLayoutManager;
+-import androidx.recyclerview.widget.RecyclerView;
+-
+-import java.util.ArrayList;
+-import java.util.List;
+-
+-/**
+- * InventoryActivity manages the display, addition, deletion, and updating of inventory items.
+- * It also handles SMS permissions and notifications for low inventory levels.
+- */
+-public class InventoryActivity extends AppCompatActivity {
+-    private static final int SMS_PERMISSION_CODE = 101;
+-    private DatabaseHelper dbHelper;
+-    private InventoryAdapter adapter;
+-    private List<Item> itemList;
+-    private EditText nameInput, qtyInput;
+-
+-    @Override
+-    protected void onCreate(Bundle savedInstanceState) {
+-        super.onCreate(savedInstanceState);
+-        setContentView(R.layout.activity_inventory);
+-
+-        // Initialize database helper and data list
+-        dbHelper = new DatabaseHelper(this);
+-        itemList = new ArrayList<>();
+-        
+-        // Configure RecyclerView for the data grid
+-        RecyclerView recyclerView = findViewById(R.id.recyclerView);
+-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+-        
+-        // Define adapter with callbacks for delete and update actions
+-        adapter = new InventoryAdapter(itemList, new InventoryAdapter.OnItemInteractionListener() {
+-            @Override
+-            public void onDeleteClick(int id) {
+-                dbHelper.deleteItem(id);
+-                refreshList();
+-                Toast.makeText(InventoryActivity.this, "Item deleted", Toast.LENGTH_SHORT).show();
+-            }
+-
+-            @Override
+-            public void onUpdateClick(Item item) {
+-                showUpdateDialog(item);
+-            }
+-        });
+-        recyclerView.setAdapter(adapter);
+-
+-        // Initialize UI components for adding new data
+-        nameInput = findViewById(R.id.newItemName);
+-        qtyInput = findViewById(R.id.newItemQty);
+-        View addBtn = findViewById(R.id.addButton);
+-        View smsBtn = findViewById(R.id.smsPermissionButton);
+-
+-        // Handle Add Item action
+-        addBtn.setOnClickListener(v -> {
+-            String name = nameInput.getText().toString().trim();
+-            String qtyStr = qtyInput.getText().toString().trim();
+-            
+-            if (!name.isEmpty() && !qtyStr.isEmpty()) {
+-                int qty = Integer.parseInt(qtyStr);
+-                dbHelper.addItem(name, qty);
+-                nameInput.setText("");
+-                qtyInput.setText("");
+-                refreshList();
+-                checkLowInventory(name, qty); // Check if notification is needed
+-            } else {
+-                Toast.makeText(this, "Please enter name and quantity", Toast.LENGTH_SHORT).show();
+-            }
+-        });
+-
+-        // Handle SMS Permission request
+-        smsBtn.setOnClickListener(v -> {
+-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.SEND_SMS}, SMS_PERMISSION_CODE);
+-            } else {
+-                Toast.makeText(this, "SMS Permission already granted", Toast.LENGTH_SHORT).show();
+-            }
+-        });
+-
+-        // Load initial data from database
+-        refreshList();
+-    }
+-
+-    /**
+-     * Shows a dialog to update the quantity of a selected item.
+-     * @param item The item to be updated.
+-     */
+-    private void showUpdateDialog(Item item) {
+-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+-        LayoutInflater inflater = getLayoutInflater();
+-        View dialogView = inflater.inflate(R.layout.dialog_update_item, null);
+-        builder.setView(dialogView);
+-
+-        EditText editQty = dialogView.findViewById(R.id.editItemQty);
+-        editQty.setText(String.valueOf(item.qty));
+-
+-        builder.setTitle("Update " + item.name)
+-               .setPositiveButton("Update", (dialog, id) -> {
+-                   String newQtyStr = editQty.getText().toString().trim();
+-                   if (!newQtyStr.isEmpty()) {
+-                       int newQty = Integer.parseInt(newQtyStr);
+-                       dbHelper.updateItem(item.id, newQty);
+-                       refreshList();
+-                       checkLowInventory(item.name, newQty);
+-                   }
+-               })
+-               .setNegativeButton("Cancel", (dialog, id) -> dialog.cancel());
+-        
+-        builder.create().show();
+-    }
+-
+-    /**
+-     * Synchronizes the in-memory list with the persistent database.
+-     */
+-    private void refreshList() {
+-        itemList.clear();
+-        Cursor cursor = dbHelper.getAllItems();
+-        if (cursor != null && cursor.moveToFirst()) {
+-            do {
+-                int id = cursor.getInt(0);
+-                String name = cursor.getString(1);
+-                int qty = cursor.getInt(2);
+-                itemList.add(new Item(id, name, qty));
+-            } while (cursor.moveToNext());
+-            cursor.close();
+-        }
+-        adapter.notifyDataSetChanged();
+-    }
+-
+-    /**
+-     * Triggers an SMS notification if inventory level falls below the threshold.
+-     */
+-    private void checkLowInventory(String name, int qty) {
+-        if (qty < 5) {
+-            sendSmsNotification("Alert: Low inventory for " + name + ". Current stock: " + qty);
+-        }
+-    }
+-
+-    /**
+-     * Sends an SMS message if permission is granted.
+-     * @param message The content of the notification.
+-     */
+-    private void sendSmsNotification(String message) {
+-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) {
+-            try {
+-                SmsManager smsManager = this.getSystemService(SmsManager.class);
+-                // Dummy phone number for demonstration purposes
+-                smsManager.sendTextMessage("5551234", null, message, null, null);
+-                Toast.makeText(this, "Notification Sent: Low Stock", Toast.LENGTH_SHORT).show();
+-            } catch (Exception e) {
+-                Toast.makeText(this, "SMS failure: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+-            }
+-        }
+-        // If permission is denied, the app continues to function without notifications.
+-    }
+-
+-    @Override
+-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+-        if (requestCode == SMS_PERMISSION_CODE) {
+-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+-                Toast.makeText(this, "SMS functionality enabled", Toast.LENGTH_SHORT).show();
+-            } else {
+-                Toast.makeText(this, "SMS notifications will be disabled", Toast.LENGTH_SHORT).show();
+-            }
+-        }
+-    }
+-
+-    /**
+-     * Data model for Inventory Items.
+-     */
+-    public static class Item {
+-        public int id;
+-        public String name;
+-        public int qty;
+-        
+-        public Item(int id, String name, int qty) { 
+-            this.id = id; 
+-            this.name = name; 
+-            this.qty = qty; 
+-        }
+-    }
+-}
++package com.example.reginald_williams;
++
++import android.Manifest;
++import android.content.pm.PackageManager;
++import android.os.Bundle;
++import android.view.LayoutInflater;
++import android.view.View;
++import android.widget.EditText;
++import android.widget.Toast;
++
++import androidx.annotation.NonNull;
++import androidx.appcompat.app.AlertDialog;
++import androidx.appcompat.app.AppCompatActivity;
++import androidx.core.app.ActivityCompat;
++import androidx.core.content.ContextCompat;
++import androidx.recyclerview.widget.LinearLayoutManager;
++import androidx.recyclerview.widget.RecyclerView;
++
++import java.util.ArrayList;
++import java.util.List;
++
++/**
++ * InventoryActivity manages the inventory screen and delegates persistence,
++ * validation, and notification work to focused helper classes. This keeps the
++ * activity responsible for UI behavior instead of combining every application
++ * responsibility in one file.
++ */
++public class InventoryActivity extends AppCompatActivity {
++    private static final int SMS_PERMISSION_CODE = 101;
++    private static final int LOW_STOCK_THRESHOLD = 5;
++
++    private InventoryRepository inventoryRepository;
++    private LowInventoryNotifier lowInventoryNotifier;
++    private InventoryAdapter adapter;
++    private List<Item> itemList;
++    private EditText nameInput, qtyInput;
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        setContentView(R.layout.activity_inventory);
++
++        inventoryRepository = new InventoryRepository(this);
++        lowInventoryNotifier = new LowInventoryNotifier(this);
++        itemList = new ArrayList<>();
++
++        RecyclerView recyclerView = findViewById(R.id.recyclerView);
++        recyclerView.setLayoutManager(new LinearLayoutManager(this));
++
++        adapter = new InventoryAdapter(itemList, new InventoryAdapter.OnItemInteractionListener() {
++            @Override
++            public void onDeleteClick(int id) {
++                deleteItem(id);
++            }
++
++            @Override
++            public void onUpdateClick(Item item) {
++                showUpdateDialog(item);
++            }
++        });
++        recyclerView.setAdapter(adapter);
++
++        nameInput = findViewById(R.id.newItemName);
++        qtyInput = findViewById(R.id.newItemQty);
++        View addBtn = findViewById(R.id.addButton);
++        View smsBtn = findViewById(R.id.smsPermissionButton);
++
++        addBtn.setOnClickListener(v -> addItemFromInput());
++        smsBtn.setOnClickListener(v -> requestSmsPermissionIfNeeded());
++
++        refreshList();
++    }
++
++    /**
++     * Validates user-entered item data before sending the request to the repository layer.
++     */
++    private void addItemFromInput() {
++        String name = InputValidator.normalizeText(nameInput.getText().toString());
++        String nameError = InputValidator.getItemNameError(name);
++        InputValidator.QuantityValidationResult quantityResult =
++                InputValidator.validateQuantity(qtyInput.getText().toString());
++
++        if (nameError != null) {
++            showMessage(nameError);
++            return;
++        }
++
++        if (!quantityResult.isValid()) {
++            showMessage(quantityResult.getErrorMessage());
++            return;
++        }
++
++        int quantity = quantityResult.getQuantity();
++        inventoryRepository.addItem(name, quantity);
++        clearItemInputs();
++        refreshList();
++        notifyIfLowInventory(name, quantity);
++    }
++
++    /**
++     * Deletes an inventory item and refreshes the UI after persistence completes.
++     */
++    private void deleteItem(int id) {
++        inventoryRepository.deleteItem(id);
++        refreshList();
++        showMessage("Item deleted");
++    }
++
++    /**
++     * Shows a dialog to update the quantity of a selected item.
++     * @param item The item to be updated.
++     */
++    private void showUpdateDialog(Item item) {
++        AlertDialog.Builder builder = new AlertDialog.Builder(this);
++        LayoutInflater inflater = getLayoutInflater();
++        View dialogView = inflater.inflate(R.layout.dialog_update_item, null);
++        builder.setView(dialogView);
++
++        EditText editQty = dialogView.findViewById(R.id.editItemQty);
++        editQty.setText(String.valueOf(item.getQuantity()));
++
++        builder.setTitle("Update " + item.getName())
++               .setPositiveButton("Update", null)
++               .setNegativeButton("Cancel", (dialog, id) -> dialog.cancel());
++
++        AlertDialog dialog = builder.create();
++        dialog.setOnShowListener(dialogInterface -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
++                .setOnClickListener(view -> handleUpdateQuantity(dialog, item, editQty)));
++        dialog.show();
++    }
++
++    /**
++     * Validates updated quantity values before changing persistent inventory data.
++     */
++    private void handleUpdateQuantity(AlertDialog dialog, Item item, EditText editQty) {
++        InputValidator.QuantityValidationResult quantityResult =
++                InputValidator.validateQuantity(editQty.getText().toString());
++
++        if (!quantityResult.isValid()) {
++            showMessage(quantityResult.getErrorMessage());
++            return;
++        }
++
++        int newQuantity = quantityResult.getQuantity();
++        inventoryRepository.updateQuantity(item.getId(), newQuantity);
++        refreshList();
++        notifyIfLowInventory(item.getName(), newQuantity);
++        dialog.dismiss();
++    }
++
++    /**
++     * Synchronizes the in-memory list with the repository layer.
++     */
++    private void refreshList() {
++        itemList.clear();
++        itemList.addAll(inventoryRepository.getAllItems());
++        adapter.notifyDataSetChanged();
++    }
++
++    /**
++     * Sends a low-stock notification when inventory drops below the defined threshold.
++     */
++    private void notifyIfLowInventory(String name, int quantity) {
++        if (quantity >= LOW_STOCK_THRESHOLD) {
++            return;
++        }
++
++        try {
++            lowInventoryNotifier.sendLowInventoryAlert(name, quantity);
++            if (lowInventoryNotifier.canSendSms()) {
++                showMessage("Notification Sent: Low Stock");
++            }
++        } catch (Exception exception) {
++            showMessage("SMS failure: " + exception.getMessage());
++        }
++    }
++
++    private void requestSmsPermissionIfNeeded() {
++        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS)
++                != PackageManager.PERMISSION_GRANTED) {
++            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.SEND_SMS}, SMS_PERMISSION_CODE);
++        } else {
++            showMessage("SMS Permission already granted");
++        }
++    }
++
++    private void clearItemInputs() {
++        nameInput.setText("");
++        qtyInput.setText("");
++    }
++
++    private void showMessage(String message) {
++        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
++    }
++
++    @Override
++    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
++        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
++        if (requestCode == SMS_PERMISSION_CODE) {
++            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
++                showMessage("SMS functionality enabled");
++            } else {
++                showMessage("SMS notifications will be disabled");
++            }
++        }
++    }
++}
+diff -ru '--exclude=.gradle' '--exclude=.idea' '--exclude=build' '--exclude=local.properties' /mnt/data/stockpro_original/Reginald_Williams/app/src/main/java/com/example/reginald_williams/InventoryAdapter.java /mnt/data/stockpro_work/Reginald_Williams/app/src/main/java/com/example/reginald_williams/InventoryAdapter.java
+--- /mnt/data/stockpro_original/Reginald_Williams/app/src/main/java/com/example/reginald_williams/InventoryAdapter.java	2026-06-23 03:45:41.000000000 +0000
++++ /mnt/data/stockpro_work/Reginald_Williams/app/src/main/java/com/example/reginald_williams/InventoryAdapter.java	2026-07-22 02:31:41.151922763 +0000
+@@ -1,78 +1,74 @@
+-package com.example.reginald_williams;
+-
+-import android.view.LayoutInflater;
+-import android.view.View;
+-import android.view.ViewGroup;
+-import android.widget.Button;
+-import android.widget.TextView;
+-
+-import androidx.annotation.NonNull;
+-import androidx.recyclerview.widget.RecyclerView;
+-
+-import java.util.List;
+-
+-/**
+- * InventoryAdapter binds the inventory data to the RecyclerView grid display.
+- * It manages item interactions such as clicking to update or deleting an item.
+- */
+-public class InventoryAdapter extends RecyclerView.Adapter<InventoryAdapter.ViewHolder> {
+-    private final List<InventoryActivity.Item> itemList;
+-    private final OnItemInteractionListener interactionListener;
+-
+-    /**
+-     * Interface to handle UI events within the data grid.
+-     */
+-    public interface OnItemInteractionListener {
+-        void onDeleteClick(int id);
+-        void onUpdateClick(InventoryActivity.Item item);
+-    }
+-
+-    public InventoryAdapter(List<InventoryActivity.Item> itemList, OnItemInteractionListener listener) {
+-        this.itemList = itemList;
+-        this.interactionListener = listener;
+-    }
+-
+-    @NonNull
+-    @Override
+-    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+-        // Inflate the row layout for individual grid items
+-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_row, parent, false);
+-        return new ViewHolder(view);
+-    }
+-
+-    @Override
+-    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+-        InventoryActivity.Item item = itemList.get(position);
+-        
+-        // Map data to UI elements
+-        holder.nameText.setText(item.name);
+-        holder.qtyText.setText("Stock: " + item.qty);
+-
+-        // Set up interactions for Read, Update, and Delete actions
+-        holder.deleteBtn.setOnClickListener(v -> interactionListener.onDeleteClick(item.id));
+-        
+-        // Clicking the item row triggers the update workflow
+-        holder.itemView.setOnClickListener(v -> interactionListener.onUpdateClick(item));
+-    }
+-
+-    @Override
+-    public int getItemCount() {
+-        return itemList.size();
+-    }
+-
+-    /**
+-     * ViewHolder pattern for efficient UI element reuse.
+-     */
+-    public static class ViewHolder extends RecyclerView.ViewHolder {
+-        final TextView nameText;
+-        final TextView qtyText;
+-        final Button deleteBtn;
+-
+-        public ViewHolder(@NonNull View itemView) {
+-            super(itemView);
+-            nameText = itemView.findViewById(R.id.itemName);
+-            qtyText = itemView.findViewById(R.id.itemQty);
+-            deleteBtn = itemView.findViewById(R.id.deleteButton);
+-        }
+-    }
+-}
++package com.example.reginald_williams;
++
++import android.view.LayoutInflater;
++import android.view.View;
++import android.view.ViewGroup;
++import android.widget.Button;
++import android.widget.TextView;
++
++import androidx.annotation.NonNull;
++import androidx.recyclerview.widget.RecyclerView;
++
++import java.util.List;
++
++/**
++ * InventoryAdapter binds inventory data to the RecyclerView grid display.
++ * It depends on the standalone Item model instead of a nested Activity class,
++ * making the adapter easier to reuse and test.
++ */
++public class InventoryAdapter extends RecyclerView.Adapter<InventoryAdapter.ViewHolder> {
++    private final List<Item> itemList;
++    private final OnItemInteractionListener interactionListener;
++
++    /**
++     * Interface to handle UI events within the data grid.
++     */
++    public interface OnItemInteractionListener {
++        void onDeleteClick(int id);
++        void onUpdateClick(Item item);
++    }
++
++    public InventoryAdapter(List<Item> itemList, OnItemInteractionListener listener) {
++        this.itemList = itemList;
++        this.interactionListener = listener;
++    }
++
++    @NonNull
++    @Override
++    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
++        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_row, parent, false);
++        return new ViewHolder(view);
++    }
++
++    @Override
++    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
++        Item item = itemList.get(position);
++
++        holder.nameText.setText(item.getName());
++        holder.qtyText.setText("Stock: " + item.getQuantity());
++
++        holder.deleteBtn.setOnClickListener(v -> interactionListener.onDeleteClick(item.getId()));
++        holder.itemView.setOnClickListener(v -> interactionListener.onUpdateClick(item));
++    }
++
++    @Override
++    public int getItemCount() {
++        return itemList.size();
++    }
++
++    /**
++     * ViewHolder pattern for efficient UI element reuse.
++     */
++    public static class ViewHolder extends RecyclerView.ViewHolder {
++        final TextView nameText;
++        final TextView qtyText;
++        final Button deleteBtn;
++
++        public ViewHolder(@NonNull View itemView) {
++            super(itemView);
++            nameText = itemView.findViewById(R.id.itemName);
++            qtyText = itemView.findViewById(R.id.itemQty);
++            deleteBtn = itemView.findViewById(R.id.deleteButton);
++        }
++    }
++}
+Only in /mnt/data/stockpro_work/Reginald_Williams/app/src/main/java/com/example/reginald_williams: InventoryRepository.java
+Only in /mnt/data/stockpro_work/Reginald_Williams/app/src/main/java/com/example/reginald_williams: Item.java
+diff -ru '--exclude=.gradle' '--exclude=.idea' '--exclude=build' '--exclude=local.properties' /mnt/data/stockpro_original/Reginald_Williams/app/src/main/java/com/example/reginald_williams/LoginActivity.java /mnt/data/stockpro_work/Reginald_Williams/app/src/main/java/com/example/reginald_williams/LoginActivity.java
+--- /mnt/data/stockpro_original/Reginald_Williams/app/src/main/java/com/example/reginald_williams/LoginActivity.java	2026-06-23 03:31:37.000000000 +0000
++++ /mnt/data/stockpro_work/Reginald_Williams/app/src/main/java/com/example/reginald_williams/LoginActivity.java	2026-07-22 02:31:11.651923698 +0000
+@@ -1,72 +1,80 @@
+-package com.example.reginald_williams;
+-
+-import android.content.Intent;
+-import android.os.Bundle;
+-import android.widget.Button;
+-import android.widget.EditText;
+-import android.widget.Toast;
+-
+-import androidx.appcompat.app.AppCompatActivity;
+-
+-/**
+- * LoginActivity provides the entry point for users to authenticate or create a new account.
+- * It manages interaction between the UI and the SQLite database via DatabaseHelper.
+- */
+-public class LoginActivity extends AppCompatActivity {
+-    private EditText usernameEdit, passwordEdit;
+-    private DatabaseHelper dbHelper;
+-
+-    @Override
+-    protected void onCreate(Bundle savedInstanceState) {
+-        super.onCreate(savedInstanceState);
+-        setContentView(R.layout.activity_login);
+-
+-        // Initialize database helper for persistence
+-        dbHelper = new DatabaseHelper(this);
+-        
+-        // Bind UI components
+-        usernameEdit = findViewById(R.id.username);
+-        passwordEdit = findViewById(R.id.password);
+-        Button loginBtn = findViewById(R.id.loginButton);
+-        Button createAccountBtn = findViewById(R.id.createAccountButton);
+-
+-        // Define Login logic
+-        loginBtn.setOnClickListener(v -> {
+-            String user = usernameEdit.getText().toString().trim();
+-            String pass = passwordEdit.getText().toString().trim();
+-
+-            if (user.isEmpty() || pass.isEmpty()) {
+-                Toast.makeText(this, "Please enter both username and password", Toast.LENGTH_SHORT).show();
+-                return;
+-            }
+-
+-            // Validate credentials against persistent database
+-            if (dbHelper.checkUser(user, pass)) {
+-                // On success, navigate to the inventory grid screen
+-                startActivity(new Intent(LoginActivity.this, InventoryActivity.class));
+-                finish();
+-            } else {
+-                Toast.makeText(this, "Authentication failed. Please try again.", Toast.LENGTH_SHORT).show();
+-            }
+-        });
+-
+-        // Define Account Creation logic
+-        createAccountBtn.setOnClickListener(v -> {
+-            String user = usernameEdit.getText().toString().trim();
+-            String pass = passwordEdit.getText().toString().trim();
+-
+-            if (user.isEmpty() || pass.isEmpty()) {
+-                Toast.makeText(this, "Fields cannot be empty for new account creation", Toast.LENGTH_SHORT).show();
+-                return;
+-            }
+-
+-            // Attempt to add new user to the database shell
+-            if (dbHelper.addUser(user, pass)) {
+-                Toast.makeText(this, "Account created successfully! You can now log in.", Toast.LENGTH_SHORT).show();
+-            } else {
+-                // Logic handles duplicate usernames via SQLite UNIQUE constraint
+-                Toast.makeText(this, "Username already exists. Choose a different one.", Toast.LENGTH_SHORT).show();
+-            }
+-        });
+-    }
+-}
++package com.example.reginald_williams;
++
++import android.content.Intent;
++import android.os.Bundle;
++import android.widget.Button;
++import android.widget.EditText;
++import android.widget.Toast;
++
++import androidx.appcompat.app.AppCompatActivity;
++
++/**
++ * LoginActivity provides the entry point for users to authenticate or create a new account.
++ * It now delegates authentication work to AuthRepository and uses InputValidator for reusable
++ * input checks, keeping the activity focused on screen behavior.
++ */
++public class LoginActivity extends AppCompatActivity {
++    private EditText usernameEdit, passwordEdit;
++    private AuthRepository authRepository;
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        setContentView(R.layout.activity_login);
++
++        authRepository = new AuthRepository(this);
++
++        usernameEdit = findViewById(R.id.username);
++        passwordEdit = findViewById(R.id.password);
++        Button loginBtn = findViewById(R.id.loginButton);
++        Button createAccountBtn = findViewById(R.id.createAccountButton);
++
++        loginBtn.setOnClickListener(v -> handleLogin());
++        createAccountBtn.setOnClickListener(v -> handleCreateAccount());
++    }
++
++    /**
++     * Handles login UI events while delegating validation and authentication checks.
++     */
++    private void handleLogin() {
++        String user = InputValidator.normalizeText(usernameEdit.getText().toString());
++        String pass = InputValidator.normalizeText(passwordEdit.getText().toString());
++        String credentialError = InputValidator.getCredentialError(user, pass);
++
++        if (credentialError != null) {
++            showMessage(credentialError);
++            return;
++        }
++
++        if (authRepository.login(user, pass)) {
++            startActivity(new Intent(LoginActivity.this, InventoryActivity.class));
++            finish();
++        } else {
++            showMessage("Authentication failed. Please try again.");
++        }
++    }
++
++    /**
++     * Handles account creation UI events while delegating persistence to AuthRepository.
++     */
++    private void handleCreateAccount() {
++        String user = InputValidator.normalizeText(usernameEdit.getText().toString());
++        String pass = InputValidator.normalizeText(passwordEdit.getText().toString());
++        String credentialError = InputValidator.getCredentialError(user, pass);
++
++        if (credentialError != null) {
++            showMessage(credentialError);
++            return;
++        }
++
++        if (authRepository.createAccount(user, pass)) {
++            showMessage("Account created successfully! You can now log in.");
++        } else {
++            showMessage("Username already exists. Choose a different one.");
++        }
++    }
++
++    private void showMessage(String message) {
++        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
++    }
++}
+Only in /mnt/data/stockpro_work/Reginald_Williams/app/src/main/java/com/example/reginald_williams: LowInventoryNotifier.java
