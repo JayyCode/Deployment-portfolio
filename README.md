@@ -1,77 +1,43 @@
-# Base44 Project
+# Reginald Williams | CS 499 Computer Science ePortfolio
 
-Use this repository to run and edit the app locally, then publish changes back through Base44.
+## Professional Abstract
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+This repository hosts the GitHub Pages ePortfolio for Reginald Williams’s CS 499 Computer Science capstone. The portfolio presents a cumulative enhancement of **StockPro**, an Android inventory management application originally developed for CS 360: Mobile Architecture and Programming. StockPro was selected because it demonstrates practical mobile application behavior across authentication, inventory management, local SQLite persistence, RecyclerView presentation, input validation, notification behavior, and user-centered decision support.
 
-## Prerequisites
+The ePortfolio documents the progression of StockPro from an initial mobile inventory application into a more complete capstone artifact across the three required computer science categories: **software design and engineering**, **algorithms and data structures**, and **databases**. The software design enhancement refactors the application into a cleaner architecture with separated models, repositories, validation logic, and notification responsibilities. The algorithms and data structures enhancement adds search, filtering, sorting, and low-stock priority scoring to improve inventory decision-making. The database enhancement expands the SQLite schema, improves query design, adds migration planning, and strengthens credential handling through password hashing.
 
-1. Clone the repository using the project's Git URL.
-2. Navigate to the project directory.
-3. Install dependencies: `npm install`.
-4. Install the Base44 CLI: `npm install -g base44@latest`.
+Together, these enhancements demonstrate growth in modular software design, algorithmic problem solving, data management, technical communication, and security-aware development. The portfolio also includes the original artifact, enhanced artifacts, milestone narratives, code review materials, professional self-assessment, and supporting deliverables required for the CS 499 final project.
 
-See the [Base44 CLI docs](https://docs.base44.com/developers/references/cli/get-started/overview) if you want to run Base44 commands directly.
+## Live Portfolio
 
-## Run Locally
+- GitHub Pages site: https://jayycode.github.io/Deployment-portfolio/
+- Code review video: https://youtu.be/X7DWghwCRyA
 
-Run the full local development environment from the project root:
+## Capstone Artifact
 
-```bash
-base44 dev
-```
+**StockPro** is a mobile inventory management application built with Android Studio, Java, XML layouts, and SQLite. The application supports account creation, login, inventory creation, item updates, deletion, RecyclerView display, and low-stock notification behavior.
 
-`base44 dev` starts the local Base44 development backend and, when this app is configured for it, also starts the frontend dev server for you. Use the frontend URL printed by the command.
+## Enhancement Categories
 
-For example, when the Base44 project config includes a `serveCommand`, `base44 dev` can launch the frontend too:
+### Software Design and Engineering
 
-```json5
-{
-  "site": {
-    "serveCommand": "npm run dev"
-  }
-}
-```
+The software design enhancement improves the structure and maintainability of StockPro by separating concerns across focused classes. The enhanced version uses a standalone item model, reusable input validation, repository classes for authentication and inventory access, and a notification helper for low-inventory alerts.
 
-In a Base44 project this lives in `base44/config.jsonc`.
+### Algorithms and Data Structures
 
-## Run Only The Frontend
+The algorithms enhancement adds a more purposeful inventory-processing pipeline. Instead of only displaying records in database order, the enhanced app supports searching, filtering, sorting, and low-stock priority scoring so users can identify important inventory records more quickly.
 
-If you only want to work on the frontend against the hosted Base44 backend, run:
+### Databases
 
-```bash
-npm run dev
-```
+The database enhancement improves StockPro’s SQLite layer by expanding the item schema, adding focused query methods, replacing destructive upgrade behavior with migration-aware logic, and improving credential handling through password hashing.
 
-Open the local URL printed by Vite.
+## Repository Contents
 
-## Use The Hosted Backend
+- `src/` — React/Vite source for the GitHub Pages portfolio
+- `public/assets/` — downloadable CS 499 artifacts, narratives, diffs, and supporting files
+- `.github/workflows/` — GitHub Actions deployment workflow
+- `README.md` — professional abstract and repository overview
 
-For frontend-only development, create or update `.env.local` in the project root:
+## Program Outcomes Represented
 
-```bash
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=https://your-app.base44.app
-```
-
-`VITE_BASE44_APP_ID` identifies the Base44 app.
-
-`VITE_BASE44_APP_BASE_URL` tells the Base44 Vite plugin where to send local `/api` requests. Point it at your deployed Base44 app URL when you want the local frontend to use the hosted backend.
-
-When you use `base44 dev`, the command injects the local Base44 values for you, so `.env.local` is mainly needed for frontend-only workflows.
-
-## Publish Your Changes
-
-After pushing your changes to git, open the Base44 dashboard and publish the app:
-
-```bash
-base44 dashboard open
-```
-
-## Docs & Support
-
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
-
-Base44 CLI command reference: [https://docs.base44.com/developers/references/cli/commands/introduction](https://docs.base44.com/developers/references/cli/commands/introduction)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+This ePortfolio is organized around the five CS 499 Computer Science program outcomes: collaborative decision-making, professional communication, algorithmic design, well-founded computing practices, and security-minded software development.
