@@ -6,9 +6,22 @@ on:
       - main
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     env:
       CI: true
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -26,10 +39,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
-      - name: Configure npm auth (optional)
+      - name: Configure npm auth optional
         run: |
           if [ -n "$NPM_TOKEN" ]; then
             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
@@ -44,7 +57,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Show dist contents (for troubleshooting)
+      - name: Show dist contents for troubleshooting
         run: |
           if [ -d dist ]; then
             echo "dist:"
@@ -55,13 +68,17 @@ jobs:
             exit 1
           fi
 
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./dist
 
       - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v5
+        id: deployment
+        uses: actions/deploy-pages@v4
 
       - name: Cleanup npmrc
         if: always()
