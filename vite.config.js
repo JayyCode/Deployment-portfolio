@@ -3,10 +3,13 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
+const base = process.env.GITHUB_ACTIONS === 'true' ? '/Deployment-portfolio/' : '/'
+
 export default defineConfig({
   // GitHub Pages serves this project at:
   // https://jayycode.github.io/Deployment-portfolio/
-  base: '/Deployment-portfolio/',
+  // In the Base44 preview it is served at root.
+  base,
 
   plugins: [
     base44({
