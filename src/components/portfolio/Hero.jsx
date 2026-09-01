@@ -7,7 +7,7 @@ export default function Hero() {
     <div className="mx-auto grid min-h-[80vh] max-w-[1500px] grid-cols-12 items-end gap-4">
       <div className="col-span-12 z-10 md:col-span-8">
         <p className="mb-8 font-mono text-xs uppercase tracking-[.18em] text-neutral-600">Southern New Hampshire University • CS 499 Capstone</p>
-        <h1 className="text-[20vw] font-black leading-[.7] tracking-[-.075em] md:text-[12rem]">REGINALD<br/><span className="ml-[8vw] text-orange-600">WILLIAMS</span></h1>
+        <h1 className="text-[20vw] font-black leading-[.7] tracking-[-.075em] md:text-[12rem]">STOCK<br/><span className="ml-[8vw] text-orange-600">PRO</span></h1>
         <p className="mt-10 max-w-xl text-xl leading-relaxed md:ml-[8vw]">Computer Science ePortfolio — engineering StockPro into a maintainable, decision-supporting, security-conscious system.</p>
         <div className="mt-8 flex flex-wrap gap-3 md:ml-[8vw]"><a className="action-btn" href="https://youtu.be/X7DWghwCRyA" target="_blank" rel="noopener"><Play size={16}/> Watch code review</a><a className="action-btn inverse" href="#downloads">Submission files <ArrowDownRight size={16}/></a></div>
       </div>
