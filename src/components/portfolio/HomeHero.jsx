@@ -1,6 +1,6 @@
 import React from 'react';
-import { Image } from '@/components/ui/image';
 import GridWave from '@/components/portfolio/GridWave';
+import HomeAnchorIndex from '@/components/portfolio/HomeAnchorIndex';
 
 export default function HomeHero() {
   return (
@@ -16,9 +16,8 @@ export default function HomeHero() {
             <a className="action-btn inverse" href="#resume">Résumé ↗</a>
           </div>
         </div>
-        <div className="col-span-12 relative mt-10 h-64 overflow-hidden md:col-span-4 md:mb-12 md:h-[52vh]">
-          <Image src="https://media.base44.com/images/public/6a899874b9c9c8d903d80a8c/0c461dd1e_generated_eb3512a0.png" alt="Abstract glass data structure connected with orange lines" className="h-full w-full grayscale transition duration-700 hover:scale-105 hover:grayscale-0"/>
-          <span className="absolute bottom-3 left-3 bg-white px-2 py-1 font-mono text-[10px]">DIRECTORY / 03 SECTIONS</span>
+        <div className="col-span-12 mt-10 md:col-span-4 md:mb-12">
+          <HomeAnchorIndex/>
         </div>
       </div>
     </header>
