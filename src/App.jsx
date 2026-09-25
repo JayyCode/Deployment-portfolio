@@ -10,6 +10,7 @@ import Home from '@/pages/Home'
 import StockPro from '@/pages/StockPro'
 import SafeStop from '@/pages/SafeStop'
 import ReverseEngineering from '@/pages/ReverseEngineering'
+import Certifications from '@/pages/Certifications'
 // Add page imports here
 
 const AuthenticatedApp = () => {
@@ -44,6 +45,7 @@ const AuthenticatedApp = () => {
       <Route path="/stockpro" element={<StockPro />} />
       <Route path="/safestop" element={<SafeStop />} />
       <Route path="/reverse-engineering" element={<ReverseEngineering />} />
+      <Route path="/certifications" element={<Certifications />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   )
