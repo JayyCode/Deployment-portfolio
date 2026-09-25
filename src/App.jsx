@@ -9,6 +9,7 @@ import ScrollToTop from './components/ScrollToTop'
 import Home from '@/pages/Home'
 import StockPro from '@/pages/StockPro'
 import SafeStop from '@/pages/SafeStop'
+import ReverseEngineering from '@/pages/ReverseEngineering'
 // Add page imports here
 
 const AuthenticatedApp = () => {
@@ -42,6 +43,7 @@ const AuthenticatedApp = () => {
       <Route path="/" element={<Home />} />
       <Route path="/stockpro" element={<StockPro />} />
       <Route path="/safestop" element={<SafeStop />} />
+      <Route path="/reverse-engineering" element={<ReverseEngineering />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   )
