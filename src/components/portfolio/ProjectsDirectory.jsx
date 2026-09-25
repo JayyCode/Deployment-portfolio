@@ -5,7 +5,7 @@ import SectionHeader from '@/components/portfolio/SectionHeader';
 
 const projects = [
   { n:'01', title:'StockPro', desc:'Android inventory application enhanced across software engineering, algorithms, and databases for the CS 499 capstone.', tags:'Java · Android · SQLite · Algorithms', status:'LIVE', to:'/stockpro' },
-  { n:'02', title:'Project Two', desc:'Documentation pending. Link and materials to follow.', tags:'—', status:'PENDING', to:null },
+  { n:'02', title:'SafeStop', desc:'Alpha civic-tech app for documenting police interactions, managing personal legal cases, and reaching official legal help.', tags:'Mapbox · Mobile · Civic Tech', status:'ALPHA', to:'/safestop' },
   { n:'03', title:'Project Three', desc:'Documentation pending. Link and materials to follow.', tags:'—', status:'PENDING', to:null }
 ];
 
