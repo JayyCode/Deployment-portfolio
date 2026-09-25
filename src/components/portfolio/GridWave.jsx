@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-const GAP = 36;
+const GAP = 28;
 const INK = '#121212';
 const ACCENT = '#ff4d00';
 
@@ -34,21 +34,28 @@ export default function GridWave({ className = '' }) {
     };
 
     const draw = (t) => {
-      const time = t * 0.0015;
+      const time = t * 0.0011;
       ctx.clearRect(0, 0, width, height);
-      const breathe = 0.82 + 0.18 * Math.sin(time * 0.55);
-      let current = '';
+      const breathe = 0.85 + 0.15 * Math.sin(time * 0.4);
+
+      ctx.fillStyle = INK;
       for (let j = 0; j < rows; j++) {
         for (let i = 0; i < cols; i++) {
-          const p = 0.5 + 0.5 * Math.sin(time - (i + j) * 0.33);
-          const crest = p > 0.88;
-          const color = crest ? ACCENT : INK;
-          if (color !== current) {
-            ctx.fillStyle = color;
-            current = color;
-          }
-          ctx.globalAlpha = (crest ? 0.9 : 0.06 + p * 0.5) * breathe;
-          const size = 1 + p * (crest ? 4 : 3);
+          const p = 0.5 + 0.5 * Math.sin(time - (i + j) * 0.24);
+          ctx.globalAlpha = (0.05 + p * 0.42) * breathe;
+          const size = 0.8 + p * 3.2;
+          ctx.fillRect(i * GAP - size / 2, j * GAP - size / 2, size, size);
+        }
+      }
+
+      ctx.fillStyle = ACCENT;
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+          const p = 0.5 + 0.5 * Math.sin(time - (i + j) * 0.24);
+          const crest = (p - 0.82) / 0.18;
+          if (crest <= 0) continue;
+          ctx.globalAlpha = crest * crest * 0.85 * breathe;
+          const size = 1.6 + crest * 3.2;
           ctx.fillRect(i * GAP - size / 2, j * GAP - size / 2, size, size);
         }
       }
