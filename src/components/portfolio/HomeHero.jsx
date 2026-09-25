@@ -1,10 +1,12 @@
 import React from 'react';
 import { Image } from '@/components/ui/image';
+import GridWave from '@/components/portfolio/GridWave';
 
 export default function HomeHero() {
   return (
     <header id="top" className="grid-lines relative min-h-screen overflow-hidden border-b border-black/10 px-5 pb-10 pt-28 md:px-8">
-      <div className="mx-auto grid min-h-[80vh] max-w-[1500px] grid-cols-12 items-end gap-4">
+      <GridWave className="pointer-events-none absolute inset-0 z-0 h-full w-full"/>
+      <div className="relative mx-auto grid min-h-[80vh] max-w-[1500px] grid-cols-12 items-end gap-4">
         <div className="col-span-12 z-10 md:col-span-8">
           <p className="mb-8 font-mono text-xs uppercase tracking-[.18em] text-neutral-600">Computer Scientist • Software Engineering & Systems</p>
           <h1 className="text-[20vw] font-black leading-[.7] tracking-[-.075em] md:text-[12rem]">REGINALD<br/><span className="ml-[8vw] text-orange-600">WILLIAMS</span></h1>
