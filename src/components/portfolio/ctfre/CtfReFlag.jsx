@@ -2,7 +2,7 @@ import React from 'react';
 import { Terminal } from 'lucide-react';
 import SectionHeader from '@/components/portfolio/SectionHeader';
 
-const FLAG = 'flag{...}';
+const FLAG = '65h4nj6h8456g84u657';
 
 const phases = [
   { n:'01', title:'Breakpoint on the comparison', body:'With WndProc mapped, the submit handler led to the routine that compares the candidate input against a transformed reference. A breakpoint was placed on the conditional branch that decides pass or fail.' },
