@@ -6,7 +6,7 @@ import SectionHeader from '@/components/portfolio/SectionHeader';
 const projects = [
   { n:'01', title:'StockPro', desc:'Android inventory application enhanced across software engineering, algorithms, and databases for the CS 499 capstone.', tags:'Java · Android · SQLite · Algorithms', status:'LIVE', to:'/stockpro' },
   { n:'02', title:'SafeStop', desc:'Alpha civic-tech app for documenting police interactions, managing personal legal cases, and reaching official legal help.', tags:'Mapbox · Mobile · Civic Tech', status:'ALPHA', to:'/safestop' },
-  { n:'03', title:'CTF Reverse Engineering', desc:'IDA Pro and Ghidra disassembly of a 64-bit Windows challenge binary — mapping the startup path toward the flag routine.', tags:'IDA Pro · Ghidra · x64 · PE', status:'IN PROGRESS', to:'/reverse-engineering' }
+  { n:'03', title:'CTF Reverse Engineering', desc:'IDA Pro and Ghidra disassembly of a 64-bit Windows challenge binary — mapping the startup path toward the flag routine.', tags:'IDA Pro · Ghidra · x64 · PE', status:'COMPLETE', to:'/reverse-engineering' }
 ];
 
 export default function ProjectsDirectory() {

@@ -14,7 +14,7 @@ const pivots = [
 export default function CtfRePivots() {
   return (
     <section id="pivots" className="section-shell">
-      <SectionHeader index="04" label="Next" title="Open pivots"/>
+      <SectionHeader index="04" label="Method" title="Pivots applied"/>
       <div className="mx-auto grid max-w-[1500px] gap-12 md:grid-cols-12">
         <div className="md:col-span-7">
           {pivots.map((p, i) => (
@@ -27,8 +27,8 @@ export default function CtfRePivots() {
         <div className="md:col-span-5">
           <div className="border border-black p-6">
             <p className="font-mono text-xs uppercase tracking-[.18em] text-orange-600">Working conclusion</p>
-            <p className="mt-4 leading-relaxed text-neutral-700">The inspected native code is mostly standard Windows startup and GUI initialization. No flag-checking, decoding, credential logic, or challenge-specific algorithm has been demonstrated yet — the likely next breakthrough sits inside WndProc or the functions it calls.</p>
-            <p className="mt-6 font-mono text-xs text-neutral-500">STATUS — STARTUP PATH MAPPED</p>
+            <p className="mt-4 leading-relaxed text-neutral-700">Following these pivots moved the analysis off the CRT scaffolding and into the application's own code: WndProc yielded the message handler, the submit path led to the comparison routine, and the flag was recovered from the register file at that branch.</p>
+            <p className="mt-6 font-mono text-xs text-neutral-500">STATUS — FLAG RECOVERED</p>
           </div>
         </div>
       </div>
